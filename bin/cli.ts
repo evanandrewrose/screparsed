@@ -7,7 +7,7 @@ import { open } from "fs/promises";
 const run = async (replay: string) => {
   const file = await open(replay, O_RDONLY);
   const readStream = file.createReadStream();
-  const parser = await ReplayParser.from(readStream);
+  const parser = await new ReplayParser(readStream).parse();
 }
 
 const main = async () => {

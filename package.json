@@ -32,6 +32,7 @@
     "typescript": "^5.0.4"
   },
   "dependencies": {
-    "binary-parser": "^2.2.1"
+    "binary-parser": "^2.2.1",
+    "smart-buffer": "^4.2.0"
   }
 }

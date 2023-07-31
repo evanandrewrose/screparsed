@@ -1,138 +1,149 @@
 import { ReadStream } from "fs";
 import { unzip } from "zlib";
 import { Parser } from "binary-parser";
+import { SmartBuffer } from "smart-buffer";
+import { promisify } from "util";
+import { TypeID, parseCommand } from "./commands";
 
-//const sectionTypes = [
-//    {
-//        name: "magic",
-//        size: undefined,
-//    },
-//    {
-//        name: "header",
-//        size: 0x279,
-//    }
-//]
+const REMASTERED_REPLAY_VERSION = "seRS";
 
 export class ReplayParser {
-  //private reader: ReadableStreamReader<Uint8Array>;
-
-  private constructor() {}
-
-  public static async from(stream: ReadStream) {
-    return new Promise<null>(async (resolve, reject) => {
-      const sections = new ReplaySectionGenerator(stream);
-      for await (const section of sections.generate()) {
-        console.log("section generated");
-      }
-      resolve(null);
+  static PlayerInfoParser = new Parser()
+    .endianess("little")
+    .int8("engine")
+    .uint32("frames")
+    .skip(3)
+    .uint32("startTime", {
+      formatter: (value) => new Date(value * 1000),
+    })
+    .skip(12)
+    .string("title", {
+      length: 28,
+      encoding: "utf-8",
+      stripNull: true,
+    })
+    .uint16("mapWidth")
+    .uint16("mapHeight")
+    .skip(1)
+    .uint8("availableSlotsCount")
+    .uint8("speed")
+    .skip(1)
+    .uint16("type")
+    .uint16("subType")
+    .skip(8)
+    .string("host", { length: 24, encoding: "utf8", stripNull: true })
+    .skip(1)
+    .string("map", { length: 26, encoding: "utf8", stripNull: true })
+    .skip(38)
+    .array("playerStructs", {
+      length: 12,
+      type: new Parser()
+        .endianess("little")
+        .uint16("slotID")
+        .skip(2)
+        .uint8("ID")
+        .skip(3)
+        .uint8("type")
+        .uint8("race", {
+          formatter: (value) => ["zerg", "terran", "protoss"][value],
+        })
+        .uint8("team")
+        .string("name", {
+          length: 25,
+          encoding: "utf8",
+          stripNull: true,
+        }),
+    })
+    .array("playerColors", {
+      length: 8,
+      type: new Parser().uint32le("color"),
     });
+
+  constructor(private stream: ReadStream) {}
+
+  public async parse() {
+    await this.streamReadable();
+
+    this.stream.read(12); // skip crc, chunks in header (=1), and size of replay version section chunk (=4), each 4 bytes
+    const replayVersion = this.stream.read(4).toString("ascii");
+
+    if (replayVersion !== REMASTERED_REPLAY_VERSION) {
+      // indicates remastered replay
+      throw new Error(`Unhandled replay version: ${replayVersion}`);
+    }
+
+    this.stream.read(4); // skip replay uncompressed size (?)
+
+    const playerInfo = ReplayParser.PlayerInfoParser.parse(await this.nextSection(this.stream, true));
+
+    await this.nextSection(this.stream); // ignored (informs uncompressed commands size, but we just allocate as needed)
+    const framesSection = await this.nextSection(this.stream, true)
+    const frames = this.parseFramesSection(framesSection);
+
+    for (const frame of frames) {
+      console.log(JSON.stringify(frame, null, 2));
+    }
+
+    console.log(playerInfo);
   }
-}
 
-export class ReplaySection {
-  constructor(private stream: ReadStream) {}
-}
+  private async nextSection(stream: ReadStream, compressed = false) {
+    stream.read(4); // skip checksum, unchecked
 
-export class ReplaySectionGenerator {
-  constructor(private stream: ReadStream) {}
+    const numChunks: number = stream.read(4).readUInt32LE();
+    const chunks = [];
 
-  private streamReady = () =>
-    new Promise((resolve) => {
+    for await (const chunk of this.readChunks(stream, numChunks, compressed)) {
+      chunks.push(chunk);
+    }
+
+    return Buffer.concat(chunks);
+  }
+
+  *parseFramesSection(frames: Buffer) {
+    const buffer = SmartBuffer.fromBuffer(frames);
+    
+    while (buffer.readOffset < buffer.length) {
+        const frameNumber = buffer.readUInt32LE();
+        const blockSize = buffer.readUInt8();
+        const endOfFrame = buffer.readOffset + blockSize;
+        const commands = [];
+
+        while (buffer.readOffset < endOfFrame) {
+          const playerId = buffer.readUInt8();
+          const commandType = buffer.readUInt8();
+          const command = parseCommand(buffer, playerId, commandType as TypeID);
+
+          if (command === null){
+            buffer.readOffset = endOfFrame;
+          } else {
+            commands.push(command);
+          }
+        }
+
+        yield {
+          frameNumber,
+          commands
+        }
+    }
+  }
+
+  private async *readChunks(
+    stream: ReadStream,
+    numChunks: number,
+    compressed = true
+  ): AsyncGenerator<Uint8Array, void, void> {
+    for (let i = 0; i < numChunks; i++) {
+      const chunkSize = stream.read(4).readUInt32LE();
+      yield compressed ? await promisify(unzip)(stream.read(chunkSize)) : stream.read(chunkSize);
+    }
+  }
+
+  private streamReadable = () => {
+    return new Promise((resolve) => {
       this.stream.on("readable", () => {
         resolve(null);
       });
     });
-
-  public async *generate() {
-    let sectionCounter = 0;
-    await this.streamReady();
-
-    while (!this.stream.readableEnded) {
-      console.log("section", sectionCounter);
-      if (sectionCounter == 1) {
-        const replaySize = this.stream.read(4); // do something with this
-      }
-
-      const checksum: Buffer = this.stream.read(4).readUInt32LE();
-      const chunks = this.stream.read(4).readUInt32LE();
-
-      // for each chunk
-      for (let i = 0; i < chunks; i++) {
-        console.log("chunk", i);
-        const size = this.stream.read(4).readUInt32LE();
-
-        console.log({
-          checksum: checksum,
-          size: size,
-          chunks: chunks,
-        });
-
-        // create a dataview that exposes the section by size, no actual reading
-        const section = this.stream.read(size);
-
-        // gzip magic number
-        if (section[0] == 0x78) {
-          const chunk: Uint8Array = await new Promise((resolve, reject) => {
-            unzip(section, {}, (error, chunk: Uint8Array) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve(chunk);
-              }
-            });
-          });
-
-          if (sectionCounter === 1) {
-            console.log("header");
-
-            const result = new Parser()
-              .endianess("little")
-              .int8("engine")
-              .uint32("frames")
-              .skip(3)
-              .uint32("startTime", {
-                formatter: (value) => new Date(value * 1000),
-              })
-              .skip(12)
-              .string("title", { length: 28, encoding: "utf-8", stripNull: true })
-              .uint16("mapWidth", { length: 2 })
-              .uint16("mapHeight", { length: 2 })
-              .skip(1)
-              .uint8("availableSlotsCount", { length: 1 })
-              .uint8("speed", { length: 1 })
-              .skip(1)
-              .uint16("type", { length: 2 })
-              .uint16("subType", { length: 2 })
-              .skip(8)
-              .string("host", { length: 24, encoding: "utf8", stripNull: true })
-              .skip(1)
-              .string("map", { length: 26, encoding: "utf8", stripNull: true })
-              .skip(38)
-              .array("playerStructs", {
-                length: 12,
-                type: new Parser()
-                  .uint16("slotID", { length: 2 })
-                  .skip(2)
-                  .uint8("ID", { length: 1 })
-                  .skip(3)
-                  .uint8("type", { length: 1 })
-                  .uint8("race", { length: 1, formatter: (value) => ["zerg", "terran", "protoss"][value] })
-                  .uint8("team", { length: 1 })
-                  .string("name", { length: 25, encoding: "utf8", stripNull: true }),
-                  formatter: (value) => value.filter((player: {ID: number}) => player.ID !== 0xff),
-              })
-              .array("playerColors", {
-                length: 8,
-                type: new Parser().uint8("color", { length: 4 }),
-              })
-              .parse(chunk);
-            console.log(result);
-          }
-        }
-      }
-
-      yield new ReplaySection(this.stream);
-      sectionCounter++;
-    }
-  }
+  };
 }
