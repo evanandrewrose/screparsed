@@ -88,48 +88,45 @@ export class ReplaySectionGenerator {
             const result = new Parser()
               .endianess("little")
               .int8("engine")
-              .uint32le("frames")
+              .uint32("frames")
               .skip(3)
-              .uint32le("startTime")
+              .uint32("startTime", {
+                formatter: (value) => new Date(value * 1000),
+              })
               .skip(12)
-              .string("title", { length: 28, encoding: "utf-8" })
-              .uint16le("mapWidth", { length: 2 })
-              .uint16le("mapHeight", { length: 2 })
+              .string("title", { length: 28, encoding: "utf-8", stripNull: true })
+              .uint16("mapWidth", { length: 2 })
+              .uint16("mapHeight", { length: 2 })
               .skip(1)
               .uint8("availableSlotsCount", { length: 1 })
               .uint8("speed", { length: 1 })
               .skip(1)
-              .uint16le("type", { length: 2 })
-              .uint16le("subType", { length: 2 })
-              .skip(0x48 - 0x3e - 2) // skip padding between subType and host
-              .string("host", { length: 24, encoding: "utf8" })
-              .skip(0x61 - 0x48 - 24) // skip padding between host and map
-              .string("map", { length: 26, encoding: "utf8" })
-              .skip(0xa1 - 0x61 - 26) // skip padding between map and player structs
+              .uint16("type", { length: 2 })
+              .uint16("subType", { length: 2 })
+              .skip(8)
+              .string("host", { length: 24, encoding: "utf8", stripNull: true })
+              .skip(1)
+              .string("map", { length: 26, encoding: "utf8", stripNull: true })
+              .skip(38)
               .array("playerStructs", {
                 length: 12,
                 type: new Parser()
-                  .uint16le("slotID", { length: 2 })
+                  .uint16("slotID", { length: 2 })
                   .skip(2)
                   .uint8("ID", { length: 1 })
                   .skip(3)
                   .uint8("type", { length: 1 })
-                  .uint8("race", { length: 1 })
+                  .uint8("race", { length: 1, formatter: (value) => ["zerg", "terran", "protoss"][value] })
                   .uint8("team", { length: 1 })
-                  .string("name", { length: 25, encoding: "utf8" }),
+                  .string("name", { length: 25, encoding: "utf8", stripNull: true }),
+                  formatter: (value) => value.filter((player: {ID: number}) => player.ID !== 0xff),
               })
-              .skip(0x251 - 0xa1 - 432) // skip padding between player structs and player colors
               .array("playerColors", {
                 length: 8,
                 type: new Parser().uint8("color", { length: 4 }),
               })
               .parse(chunk);
             console.log(result);
-            // format time
-            console.log('startTime', result.startTime);
-            console.log(
-                new Date(Number(result.startTime * 1000)).toISOString()
-            );
           }
         }
       }
