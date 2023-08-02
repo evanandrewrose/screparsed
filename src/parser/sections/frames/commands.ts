@@ -1,7 +1,5 @@
-import { Parser } from "binary-parser";
-import { parse } from "path";
 import { SmartBuffer } from "smart-buffer";
-import { UnitMapping } from "./units";
+import { UnitMapping } from "@/parser/sections/frames/units";
 
 export const TypeIDSaveGame = 0x06;
 export const TypeIDLoadGame = 0x07;
@@ -318,7 +316,6 @@ const select121Parser = (buffer: SmartBuffer) => {
 export const CommandParsers: {
   [key in TypeID]: CommandParser;
 } = {
-
   // Command which have no additional data
   [TypeIDCancelBuild]: 0,
   [TypeIDCancelMorph]: 0,
@@ -342,7 +339,7 @@ export const CommandParsers: {
   [TypeIDStartGame]: 0,
   [TypeIDBriefingStart]: 0,
 
-  // Have additioanl data, but we ignore it
+  // have additioanl data, but we ignore it, number indicates how many bytes we ignore
   [TypeIDSync]: 6,
   [TypeIDVoiceSquelch]: 1,
   [TypeIDVoiceUnsquelch]: 1,
@@ -358,7 +355,7 @@ export const CommandParsers: {
   [TypeIDSavedData]: 12,
   [TypeIDReplaySpeed]: 9,
 
-  // Have additional data and we parse it
+  // have additional data and we parse it using the given parser
   [TypeIDSaveGame]: parseSaveLoadGame,
   [TypeIDLoadGame]: parseSaveLoadGame,
   [TypeIDSelect]: selectionParser,
@@ -410,6 +407,7 @@ export const parseCommand = (
   const parser = CommandParsers[typeId];
 
   if (parser === undefined) {
+    console.warn(`Unknown command type ${typeId}`);
     return null;
   }
 
