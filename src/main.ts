@@ -43,10 +43,10 @@ import { parseFramesSection } from "./parser/sections/frames";
 // ┌──────────────────────────────────────────────────────┐   ┐
 // │3f 12 be 33 | 31 a0 00 00 | b6 2a ?? ?? | 78 9c 63 cc |   │- next section decompressed size section
 // └──────────────────────────────────────────────────────┘   │
-// [crc         ][num chunks  ][num bytes  ][next sect len]   ┘ This section is composed of a single non-compressed chunk, which describes
-//                                                              the size of the next section inflated. We skip this section, since we 
-//                                                              allocate the decompressed data buffer dynamically. This type of section 
-//                                                              preceedes all future data sections.
+// [crc         ][num chunks  ][num bytes  ][next sect len]   │ This section is composed of a single non-compressed chunk, which describes
+//                                                            │ the size of the next section inflated. We skip this section, since we 
+//                                                            │ allocate the decompressed data buffer dynamically. This type of section 
+//                                                            ┘ preceedes all future data sections.
 // 
 // [---]
 // 
@@ -57,7 +57,7 @@ import { parseFramesSection } from "./parser/sections/frames";
 // ┌──────────────────────────────────────────────────────┐   │ compressed using zlib. Each chunk is prefaced by a 4-byte integer
 // │?? ?? ?? ?? | ?? ?? ?? ?? | ?? ?? ?? ?? | ?? ?? ?? ?? |   │ (num bytes) describing the size of the chunk when compressed. We read each 
 // └──────────────────────────────────────────────────────┘   │ chunk, decompress them individually, join them into a single buffer, and 
-// [ gzip data assiciated with chunk 1 (first of many)        ] parse that buffer. This should be the case for future sections as well.
+// [ gzip data assiciated with chunk 1 (first of many)        ┘ parse that buffer. This should be the case for future sections as well.
 // ```
 
 const REMASTERED_REPLAY_VERSION = "seRS";
