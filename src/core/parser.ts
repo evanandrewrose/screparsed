@@ -1,14 +1,12 @@
-import { HeaderSize, parseHeader } from "@/parser/sections/header";
-import { parsePlayerInfo } from "@/parser/sections/player_info";
-import { ReadStream } from "fs";
-import { promisify } from "util";
-import { unzip } from "zlib";
-import { parseFramesSection } from "./parser/sections/frames";
+import { HeaderSize, parseHeader } from "@/core/parser/sections/header";
+import { parsePlayerInfo } from "@/core/parser/sections/player_info";
+import { parseFramesSection } from "@/core/parser/sections/frames";
+import { StreamReader } from "@/core/util";
 
 // A StarCraft: Remastered replay is a file composed of several "sections", each of which is composed of several "chunks". Each section
 // describes a different aspect of the replay, such as the header, player info, and frames, map data, etc. Depending on the section, the
 // chunks within may be compressed using zlib.
-// 
+//
 // This parser is a work in progress. Currently, only the header, player info, and frames sections are parsed (frames being a logical step
 // of progression in the replay, containing some number of player commands that were issued. Below is a diagram of the high-level structure
 // of a replay file, up to the point where this parser currently parses. It does not describe the structure of the decompressed chunks. For
@@ -17,7 +15,7 @@ import { parseFramesSection } from "./parser/sections/frames";
 // Note that chunks are not guaranteed to be parsable individually. Instead, they must be decompressed and then parsed as a whole or parsed
 // as a stream. For simplicity, this parser decompresses the entire section before parsing it, though streaming would be more memory
 // efficient.
-// 
+//
 // ┌──────────────────────────────────────────────────────┐   ┐
 // │c2 19 c2 93 | 01 00 00 00 | 04 00 00 00 | 73 65 52 53 |   │- header
 // └──────────────────────────────────────────────────────┘   │
@@ -26,9 +24,9 @@ import { parseFramesSection } from "./parser/sections/frames";
 // │8f 8b 01 00 |                                             │ for in the "num bytes" field, we read and parse the entire "header" as a
 // └────────────┘                                             │ single, unique blob to simplify the code.
 // [unknown val ]                                             ┘
-// 
+//
 // [---]
-// 
+//
 // ┌──────────────────────────────────────────────────────┐   ┐
 // │3e eb c3 d3 | 01 00 00 00 | b6 00 00 00 | 78 9c 63 cc |   │- player info data section
 // └──────────────────────────────────────────────────────┘   │
@@ -39,24 +37,24 @@ import { parseFramesSection } from "./parser/sections/frames";
 // [ gzip data assiciated with chunk 1 (only chunk)       ]   ┘
 //
 // [---]
-// 
+//
 // ┌──────────────────────────────────────────────────────┐   ┐
 // │3f 12 be 33 | 31 a0 00 00 | b6 2a ?? ?? | 78 9c 63 cc |   │- next section decompressed size section
 // └──────────────────────────────────────────────────────┘   │
 // [crc         ][num chunks  ][num bytes  ][next sect len]   │ This section is composed of a single non-compressed chunk, which describes
-//                                                            │ the size of the next section inflated. We skip this section, since we 
-//                                                            │ allocate the decompressed data buffer dynamically. This type of section 
+//                                                            │ the size of the next section inflated. We skip this section, since we
+//                                                            │ allocate the decompressed data buffer dynamically. This type of section
 //                                                            ┘ preceedes all future data sections.
-// 
+//
 // [---]
-// 
+//
 // ┌──────────────────────────────────────────────────────┐   ┐
 // │3f 12 be 33 | 31 a0 00 00 | b6 2a ?? ?? | 78 9c 63 cc |   │- frame data (& commands) data section
 // └──────────────────────────────────────────────────────┘   │
-// [crc         ][num chunks  ][num bytes  ][compressed.. ]   | The commands section is composed of many chunks (typically), which are 
+// [crc         ][num chunks  ][num bytes  ][compressed.. ]   | The commands section is composed of many chunks (typically), which are
 // ┌──────────────────────────────────────────────────────┐   │ compressed using zlib. Each chunk is prefaced by a 4-byte integer
-// │?? ?? ?? ?? | ?? ?? ?? ?? | ?? ?? ?? ?? | ?? ?? ?? ?? |   │ (num bytes) describing the size of the chunk when compressed. We read each 
-// └──────────────────────────────────────────────────────┘   │ chunk, decompress them individually, join them into a single buffer, and 
+// │?? ?? ?? ?? | ?? ?? ?? ?? | ?? ?? ?? ?? | ?? ?? ?? ?? |   │ (num bytes) describing the size of the chunk when compressed. We read each
+// └──────────────────────────────────────────────────────┘   │ chunk, decompress them individually, join them into a single buffer, and
 // [ gzip data assiciated with chunk 1 (first of many)        ┘ parse that buffer. This should be the case for future sections as well.
 // ```
 
@@ -64,14 +62,12 @@ const REMASTERED_REPLAY_VERSION = "seRS";
 
 /**
  * A parser for StarCraft: Remastered replay files.
-*/
+ */
 export class ReplayParser {
-  constructor(private stream: ReadStream) {}
+  constructor(private stream: StreamReader, private unzip: (buffer: Buffer) => Promise<Buffer>) {}
 
   public async parse() {
-    await this.streamReadable();
-
-    const header = parseHeader(this.stream.read(HeaderSize));
+    const header = parseHeader(await this.stream.read(HeaderSize));
 
     if (header.replayVersion !== REMASTERED_REPLAY_VERSION) {
       throw new Error(`Unsupported replay version: ${header.replayVersion}`);
@@ -79,7 +75,7 @@ export class ReplayParser {
 
     const playerInfo = parsePlayerInfo(await this.nextSection(true));
 
-    this.skipNextSection(); // this section describes the size of next section; we allocate dynamically instead
+    await this.skipNextSection(); // this section describes the size of next section; we allocate dynamically instead
     const framesSection = await this.nextSection(true);
 
     const frames = parseFramesSection(framesSection);
@@ -91,13 +87,13 @@ export class ReplayParser {
     console.log(playerInfo);
   }
 
-  private skipNextSection(): void {
+  private async skipNextSection(): Promise<void> {
     this.stream.read(4); // skip checksum, unchecked
 
-    const numChunks: number = this.stream.read(4).readUInt32LE();
+    const numChunks: number = await this.stream.readUInt32LE();
 
     for (let i = 0; i < numChunks; i++) {
-      const chunkSize = this.stream.read(4).readUInt32LE();
+      const chunkSize = await this.stream.readUInt32LE();
       this.stream.read(chunkSize);
     }
   }
@@ -110,13 +106,10 @@ export class ReplayParser {
   private async nextSection(compressed = false): Promise<Buffer> {
     this.stream.read(4); // skip checksum, unchecked
 
-    const numChunks: number = this.stream.read(4).readUInt32LE();
+    const numChunks: number = await this.stream.readUInt32LE();
     const chunks = [];
 
-    for await (const chunk of this.readChunks(
-      numChunks,
-      compressed
-    )) {
+    for await (const chunk of this.readChunks(numChunks, compressed)) {
       chunks.push(chunk);
     }
 
@@ -134,21 +127,10 @@ export class ReplayParser {
     compressed = true
   ): AsyncGenerator<Uint8Array, void, void> {
     for (let i = 0; i < numChunks; i++) {
-      const chunkSize = this.stream.read(4).readUInt32LE();
+      const chunkSize = await this.stream.readUInt32LE();
       yield compressed
-        ? await promisify(unzip)(this.stream.read(chunkSize))
+        ? await this.unzip(await this.stream.read(chunkSize))
         : this.stream.read(chunkSize);
     }
   }
-
-  /**
-   * @returns Promise that resolves when the stream is readable
-   */
-  private streamReadable = () => {
-    return new Promise((resolve) => {
-      this.stream.on("readable", () => {
-        resolve(null);
-      });
-    });
-  };
 }

@@ -1,5 +1,5 @@
 import { SmartBuffer } from "smart-buffer";
-import { UnitMapping } from "@/parser/sections/frames/units";
+import { UnitMapping } from "@/core/parser/sections/frames/units";
 
 export const TypeIDSaveGame = 0x06;
 export const TypeIDLoadGame = 0x07;
