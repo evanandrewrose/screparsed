@@ -1,5 +1,5 @@
 {
-	"name": "screparsed-web",
+	"name": "web-preview",
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
@@ -12,8 +12,11 @@
 		"format": "prettier --plugin-search-dir . --write ."
 	},
 	"devDependencies": {
+		"@esbuild-plugins/node-globals-polyfill": "^0.2.3",
 		"@sveltejs/adapter-auto": "^2.0.0",
 		"@sveltejs/kit": "^1.20.4",
+		"@types/es6-promisify": "^6.0.1",
+		"@types/filesize": "^5.0.0",
 		"@typescript-eslint/eslint-plugin": "^5.45.0",
 		"@typescript-eslint/parser": "^5.45.0",
 		"eslint": "^8.28.0",
@@ -27,5 +30,18 @@
 		"typescript": "^5.0.0",
 		"vite": "^4.4.2"
 	},
-	"type": "module"
+	"type": "module",
+	"dependencies": {
+		"assert": "^2.0.0",
+		"browserify-zlib": "^0.2.0",
+		"buffer": "^6.0.3",
+		"es6-promisify": "^7.0.0",
+		"fflate": "^0.8.0",
+		"filedrop-svelte": "^0.1.2",
+		"filesize": "^10.0.8",
+		"readable-stream": "^4.4.2",
+		"screparsed": "file:..",
+		"stream-browserify": "^3.0.0",
+		"util": "^0.12.5"
+	}
 }

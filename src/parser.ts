@@ -1,7 +1,12 @@
-import { HeaderSize, parseHeader } from "@/core/parser/sections/header";
-import { parsePlayerInfo } from "@/core/parser/sections/player_info";
-import { parseFramesSection } from "@/core/parser/sections/frames";
-import { StreamReader } from "@/core/util";
+import { HeaderSize, parseHeader } from "@/parser/sections/header";
+import { parsePlayerInfo } from "@/parser/sections/player_info";
+import { Frame, parseFramesSection } from "@/parser/sections/frames";
+import { StreamReader } from "@/util";
+import { Buffer } from "buffer";
+import { promisify } from "util";
+import { unzip } from "zlib";
+import { ParsedReplay } from "@/parsed";
+import { parsePlayerColors } from "./parser/sections/colors";
 
 // A StarCraft: Remastered replay is a file composed of several "sections", each of which is composed of several "chunks". Each section
 // describes a different aspect of the replay, such as the header, player info, and frames, map data, etc. Depending on the section, the
@@ -20,10 +25,10 @@ import { StreamReader } from "@/core/util";
 // │c2 19 c2 93 | 01 00 00 00 | 04 00 00 00 | 73 65 52 53 |   │- header
 // └──────────────────────────────────────────────────────┘   │
 // [crc         ][num chunks  ][num bytes   ][seRS        ]   | The header section could be seen as just the first 16 bytes, since the
-// ┌────────────┐                                             │ "num bytes" field is 4, but since the "unknown val" field is not accounted
+// ┌────────────┐                                             │ "num bytes" field is 4, but since the "file size" field is not accounted
 // │8f 8b 01 00 |                                             │ for in the "num bytes" field, we read and parse the entire "header" as a
 // └────────────┘                                             │ single, unique blob to simplify the code.
-// [unknown val ]                                             ┘
+// [file size   ]                                             ┘
 //
 // [---]
 //
@@ -61,10 +66,53 @@ import { StreamReader } from "@/core/util";
 const REMASTERED_REPLAY_VERSION = "seRS";
 
 /**
- * A parser for StarCraft: Remastered replay files.
+ * A parser for StarCraft: Remastered replay files
+ * 
+ * @example using with a file input
+ * ```
+ * const file = await open(replay, O_RDONLY);
+ * const readStream = file.createReadStream();
+ * 
+ * const readableStream = new ReadableStream({
+ *   start(controller) {
+ *     readStream.on("data", (chunk) => {
+ *       controller.enqueue(chunk);
+ *     });
+ *     readStream.on("end", () => {
+ *       controller.close();
+ *     });
+ *     readStream.on("error", (err) => {
+ *       controller.error(err);
+ *     });
+ *   },
+ *   type: "bytes", // <- required
+ * });
+ * 
+ * const parser = ReplayParser.fromReadableStream(readableStream);
+ * const replay = await parser.parse();
+ * ```
  */
 export class ReplayParser {
-  constructor(private stream: StreamReader, private unzip: (buffer: Buffer) => Promise<Buffer>) {}
+  public static fromReadableStream(stream: ReadableStream) {
+    const reader = new StreamReader(stream);
+    return new ReplayParser(reader);
+  }
+
+  public static fromArrayBuffer(arrayBuffer: ArrayBuffer) {
+    const reader = new StreamReader(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(arrayBuffer));
+          controller.close();
+        },
+        type: "bytes",
+      })
+    );
+
+    return new ReplayParser(reader);
+  }
+
+  private constructor(private stream: StreamReader) {}
 
   public async parse() {
     const header = parseHeader(await this.stream.read(HeaderSize));
@@ -74,27 +122,61 @@ export class ReplayParser {
     }
 
     const playerInfo = parsePlayerInfo(await this.nextSection(true));
+    console.log(JSON.stringify(playerInfo, null, 2));
 
     await this.skipNextSection(); // this section describes the size of next section; we allocate dynamically instead
     const framesSection = await this.nextSection(true);
 
-    const frames = parseFramesSection(framesSection);
+    const frames: Frame[] = [];
 
-    for (const frame of frames) {
-      console.log(JSON.stringify(frame, null, 2));
+    for (const frame of parseFramesSection(framesSection)) {
+      frames.push(frame);
     }
 
-    console.log(playerInfo);
+    await this.skipNextSection(); // skip map data size section
+    await this.skipNextSection(); // skip map data section
+    await this.skipNextSection(); // skip player names section
+
+    // future "modern" sections have sectionid + section size before each, though they're in a predictable order
+    const skinsSectionId = (await this.stream.read(4)).readUint32LE();
+    await this.stream.read(4); // skip remaining section size
+    await this.skipNextSection(); // skip skins section
+
+    const lmtsSectionId = (await this.stream.read(4)).readUint32LE();
+    await this.stream.read(4); // skip remaining section size
+    await this.skipNextSection(); // skip skins section
+
+    const bfixSectionId = (await this.stream.read(4)).readUint32LE();
+    await this.stream.read(4); // skip remaining section size
+    await this.skipNextSection(); // skip skins section
+
+    const playerColorsSectionId = (await this.stream.read(4)).toString();
+    console.log(playerColorsSectionId);
+    const playerColorsSectionSize = (await this.stream.read(4)).readUint32LE(); // skip remaining section size
+    console.log(playerColorsSectionSize);
+
+    const playerColors = parsePlayerColors(await this.nextSection(true));
+
+    await this.stream.read(4); // skip sectionid
+    await this.stream.read(4); // skip remaining section size
+    await this.skipNextSection(); // skip gcfg section
+    console.log(playerColors);
+
+    return new ParsedReplay(playerInfo, frames);
   }
 
+
+  /**
+   * Similar logic to {@link nextSection} but doesn't bother aggregating the chunks, so it should be a bit faster
+   */
   private async skipNextSection(): Promise<void> {
-    this.stream.read(4); // skip checksum, unchecked
+    await this.stream.read(4); // skip checksum, unchecked
 
     const numChunks: number = await this.stream.readUInt32LE();
 
     for (let i = 0; i < numChunks; i++) {
       const chunkSize = await this.stream.readUInt32LE();
-      this.stream.read(chunkSize);
+      await this.stream.read(chunkSize);
     }
   }
 
@@ -104,7 +186,7 @@ export class ReplayParser {
    * @returns a buffer containing the section data
    */
   private async nextSection(compressed = false): Promise<Buffer> {
-    this.stream.read(4); // skip checksum, unchecked
+    await this.stream.read(4); // skip checksum, unchecked
 
     const numChunks: number = await this.stream.readUInt32LE();
     const chunks = [];
@@ -128,9 +210,8 @@ export class ReplayParser {
   ): AsyncGenerator<Uint8Array, void, void> {
     for (let i = 0; i < numChunks; i++) {
       const chunkSize = await this.stream.readUInt32LE();
-      yield compressed
-        ? await this.unzip(await this.stream.read(chunkSize))
-        : this.stream.read(chunkSize);
+      const chunk = await this.stream.read(chunkSize);
+      yield compressed ? await promisify(unzip)(chunk) : chunk;
     }
   }
 }

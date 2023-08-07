@@ -1,5 +1,5 @@
 import { SmartBuffer } from "smart-buffer";
-import { UnitMapping } from "@/core/parser/sections/frames/units";
+import { UnitMapping } from "@/parser/sections/frames/units";
 
 export const TypeIDSaveGame = 0x06;
 export const TypeIDLoadGame = 0x07;
@@ -170,19 +170,19 @@ const parseSaveLoadGame = (buffer: SmartBuffer) => {
 };
 
 const selectionParser = (buffer: SmartBuffer) => {
-    const size = buffer.readUInt8();
-    const selections = [];
-    for (let i = 0; i < size; i++) {
-        selections.push(buffer.readUInt16LE());
-    }
-    return { selections };
+  const size = buffer.readUInt8();
+  const selections = [];
+  for (let i = 0; i < size; i++) {
+    selections.push(buffer.readUInt16LE());
+  }
+  return { selections };
 };
 
 const buildParser = (buffer: SmartBuffer) => ({
-    order: buffer.readUInt8(),
-    x: buffer.readUInt16LE(),
-    y: buffer.readUInt16LE(),
-    unit: UnitMapping[buffer.readUInt16LE()],
+  order: buffer.readUInt8(),
+  x: buffer.readUInt16LE(),
+  y: buffer.readUInt16LE(),
+  unit: UnitMapping[buffer.readUInt16LE()],
 });
 
 const visionParser = (buffer: SmartBuffer) => ({
@@ -306,7 +306,7 @@ const select121Parser = (buffer: SmartBuffer) => {
   const selections = [];
   for (let i = 0; i < size; i++) {
     selections.push({
-        unitTag: buffer.readUInt16LE(),
+      unitTag: buffer.readUInt16LE(),
     });
     buffer.readOffset += 2; // unknown
   }
@@ -396,31 +396,54 @@ export const CommandParsers: {
   [TypeIDUnload121]: unload121Parser,
   [TypeIDSelect121]: select121Parser,
   [TypeIDSelectAdd121]: select121Parser,
-  [TypeIDSelectRemove121]: select121Parser
-};
+  [TypeIDSelectRemove121]: select121Parser,
+} as const;
+
+type CommandParserForTypeID<T extends TypeID> = (typeof CommandParsers)[T];
+
+type CommandReturnType<T extends TypeID> = T extends typeof TypeIDChat
+  ? ReturnType<typeof chatParser>
+  : CommandParserForTypeID<T> extends number
+  ? number
+  : ReturnType<Exclude<CommandParserForTypeID<T>, number>>[T];
+
+export interface ParsedCommand<T extends TypeID> {
+  type: T;
+  typeName: string;
+  playerId: number;
+  data: CommandReturnType<T>;
+}
 
 export const parseCommand = (
   buffer: SmartBuffer,
   playerId: number,
   typeId: TypeID
-) => {
+): ParsedCommand<TypeID> => {
   const parser = CommandParsers[typeId];
 
   if (parser === undefined) {
     console.warn(`Unknown command type ${typeId}`);
-    return null;
+    return {
+      type: typeId,
+      typeName: 'Unknown',
+      playerId,
+      data: null,
+    };
   }
 
   if (typeof parser === "number") {
     buffer.readOffset += parser;
     return {
-      type: typeIdNames[typeId],
+      type: typeId,
+      typeName: typeIdNames[typeId],
       playerId,
+      data: null,
     };
   }
 
   return {
-    type: typeIdNames[typeId],
+    type: typeId,
+    typeName: typeIdNames[typeId],
     playerId,
     data: parser(buffer),
   };

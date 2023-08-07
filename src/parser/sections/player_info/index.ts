@@ -1,4 +1,5 @@
 import { Parser } from "binary-parser";
+import { Buffer } from "buffer";
 
 const PlayerInfoParser = new Parser()
   .endianess("little")
@@ -52,33 +53,34 @@ const PlayerInfoParser = new Parser()
   });
 
 export type PlayerInfo = {
-    engine: number;
-    frames: number;
-    startTime: Date;
-    title: string;
-    mapWidth: number;
-    mapHeight: number;
-    availableSlotsCount: number;
-    speed: number;
-    type: number;
-    subType: number;
-    host: string;
-    map: string;
-    playerStructs: PlayerStruct[];
-    playerColors: PlayerColor[];
-}
+  engine: number;
+  frames: number;
+  startTime: Date;
+  title: string;
+  mapWidth: number;
+  mapHeight: number;
+  availableSlotsCount: number;
+  speed: number;
+  type: number;
+  subType: number;
+  host: string;
+  map: string;
+  playerStructs: PlayerStruct[];
+  playerColors: PlayerColor[];
+};
 
 export type PlayerStruct = {
-    slotID: number;
-    ID: number;
-    type: number;
-    race: "zerg" | "terran" | "protoss";
-    team: number;
-    name: string;
-}
+  slotID: number;
+  ID: number;
+  type: number;
+  race: "zerg" | "terran" | "protoss";
+  team: number;
+  name: string;
+};
 
 export type PlayerColor = {
-    color: number;
-}
+  color: number;
+};
 
-export const parsePlayerInfo = (buffer: Buffer): PlayerInfo => PlayerInfoParser.parse(buffer);
+export const parsePlayerInfo = (buffer: Buffer): PlayerInfo =>
+  PlayerInfoParser.parse(buffer);

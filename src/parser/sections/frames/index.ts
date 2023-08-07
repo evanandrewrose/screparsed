@@ -1,8 +1,14 @@
 import { SmartBuffer } from "smart-buffer";
-import { TypeID, parseCommand } from "./commands";
+import { ParsedCommand, TypeID, parseCommand } from "./commands";
+import { Buffer } from "buffer";
 
-export function* parseFramesSection(frames: Buffer) {
-  const buffer = SmartBuffer.fromBuffer(frames);
+export interface Frame {
+  frameNumber: number;
+  commands: ParsedCommand<TypeID>[];
+}
+
+export function* parseFramesSection(frames: Buffer): Generator<Frame> {
+  const buffer = SmartBuffer.fromBuffer(frames as any);
 
   while (buffer.readOffset < buffer.length) {
     const frameNumber = buffer.readUInt32LE();

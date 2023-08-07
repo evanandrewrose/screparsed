@@ -1,6 +1,8 @@
+import { Buffer } from "buffer";
+
 /**
  * A helper for reading bytes from a ReadableStream.
- * 
+ *
  * @example
  * Example using a Node ReadStream (convert to ReadableStream first):
  * ```
@@ -20,16 +22,16 @@
  *   },
  *   type: "bytes",
  * }));
- * 
+ *
  * const byte = await streamReader.readUInt8();
  * ```
- * 
+ *
  * @example
  * Example using a Fetch Response (convert to ReadableStream first):
  * ```
  * const response = await fetch(replay);
  * const streamReader = new StreamReader(response.body);
- * 
+ *
  * const byte = await streamReader.readUInt8();
  * ```
  */
@@ -52,14 +54,14 @@ export class StreamReader {
     let bytesRead = 0;
 
     while (bytesRead < length) {
-        const { done, value } = await this.byobReader.read(buffer);
+      const { done, value } = await this.byobReader.read(buffer);
 
-        if (done) {
-            throw new Error("Unexpected end of stream");
-        }
+      if (done) {
+        throw new Error("Unexpected end of stream");
+      }
 
-        buffer = value;
-        bytesRead += value.byteLength;
+      buffer = Buffer.from(value);
+      bytesRead += value.byteLength;
     }
 
     return buffer;
@@ -70,37 +72,19 @@ export class StreamReader {
   };
 
   readInt8 = async (): Promise<number> =>
-    this.read(1).then((buffer) => buffer.readInt8());
-  readInt16BE = async (): Promise<number> =>
-    this.read(2).then((buffer) => buffer.readInt16BE());
+    this.read(1).then((buffer) => buffer.readInt8(0));
   readInt16LE = async (): Promise<number> =>
-    this.read(2).then((buffer) => buffer.readInt16LE());
-  readInt32BE = async (): Promise<number> =>
-    this.read(4).then((buffer) => buffer.readInt32BE());
+    this.read(2).then((buffer) => buffer.readInt16LE(0));
   readInt32LE = async (): Promise<number> =>
-    this.read(4).then((buffer) => buffer.readInt32LE());
-  readBigInt64BE = async (): Promise<bigint> =>
-    this.read(8).then((buffer) => buffer.readBigInt64BE());
-  readBigInt64LE = async (): Promise<bigint> =>
-    this.read(8).then((buffer) => buffer.readBigInt64LE());
+    this.read(4).then((buffer) => buffer.readInt32LE(0));
   readUInt8 = async (): Promise<number> =>
-    this.read(1).then((buffer) => buffer.readUInt8());
-  readUInt16BE = async (): Promise<number> =>
-    this.read(2).then((buffer) => buffer.readUInt16BE());
+    this.read(1).then((buffer) => buffer.readUInt8(0));
   readUInt16LE = async (): Promise<number> =>
-    this.read(2).then((buffer) => buffer.readUInt16LE());
-  readUInt32BE = async (): Promise<number> =>
-    this.read(4).then((buffer) => buffer.readUInt32BE());
+    this.read(2).then((buffer) => buffer.readUInt16LE(0));
   readUInt32LE = async (): Promise<number> =>
-    this.read(4).then((buffer) => buffer.readUInt32LE());
-  readBigUInt64BE = async (): Promise<bigint> =>
-    this.read(8).then((buffer) => buffer.readBigUInt64BE());
-  readBigUInt64LE = async (): Promise<bigint> =>
-    this.read(8).then((buffer) => buffer.readBigUInt64LE());
-  readFloatBE = async (): Promise<number> =>
-    this.read(4).then((buffer) => buffer.readFloatBE());
+    this.read(4).then((buffer) => buffer.readUInt32LE(0));
   readFloatLE = async (): Promise<number> =>
-    this.read(4).then((buffer) => buffer.readFloatLE());
+    this.read(4).then((buffer) => buffer.readFloatLE(0));
   readString = async (length: number): Promise<string> =>
     this.read(length).then((buffer) => buffer.toString());
 }
