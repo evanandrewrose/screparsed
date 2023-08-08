@@ -7,17 +7,17 @@ It works both via NodeJS and in the browser (browser app demonstration included)
 ## Installation
 
 ```bash
-npm i screparsed
+npm i screparsed --save
 ```
 
-## Usage in web
+## Usage in browser
 
-You'll need polyfills for `zlib`, `buffer`, `stream`, `util`, and `assert`. See [vite.config.ts](web-preview/vite.config.ts) for an example
-configuration.
+This package should work out-of-the-box for NodeJS environments. In the browser, you'll need polyfills for `zlib`, `buffer`, `stream`,
+`util`, and `assert`. See [vite.config.ts](web-preview/vite.config.ts) for an example configuration.
 
 ## Examples
 
-### Constructing via file in NodeJS:
+### Constructing via file in NodeJS
 ```typescript
   const file = await open(replay, O_RDONLY);
   const readStream = file.createReadStream();
@@ -39,7 +39,7 @@ configuration.
   );
 ```
 
-### Constructing via ArrayBuffer (e.g., after fetch in browser):
+### Constructing via ArrayBuffer (e.g., after fetch in browser)
 ```typescript
 const parser = ReplayParser.fromArrayBuffer(arrayBuffer);
 ```
@@ -58,7 +58,7 @@ console.log(JSON.stringify({
 }, null, 2));
 ```
 
-Displays:
+#### Displays
 ```json
 {
   "gameInfo": {
@@ -111,14 +111,14 @@ Displays:
 }
 ```
 
-## Running via CLI (in repo):
+## Running via CLI
 ```bash
 # in repo directory
 npm i
 npm run cli -- /path/to/replay.rep
 ```
 
-## Running drag-n-drop web preview locally:
+## Running drag-n-drop web preview locally
 ```bash
 # in repo directory
 npm build
