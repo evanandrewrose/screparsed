@@ -17,7 +17,6 @@
 <FileDrop on:filedrop={(e) => parse(e.detail.files.accepted[0])}>Upload files</FileDrop>
 
 {#if parsed}
-	<!-- create table from all keys + values in paresd.gameInfo -->
 	<table>
 		{#each Object.entries(parsed.gameInfo) as [key, value]}
 			<tr>

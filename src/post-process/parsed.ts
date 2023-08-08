@@ -3,6 +3,7 @@ import { Frame } from "@/parser/sections/frames";
 import {
   CommandOfType,
   ParsedCommand,
+  TypeID,
   TypeIDChat,
   TypeIDLeaveGame,
 } from "@/parser/sections/frames/commands";
@@ -14,7 +15,8 @@ export type WithFrameAndTime<T> = T & {
   timeMs: number;
 };
 
-export type ParsedCommandWithFrameAndTime = WithFrameAndTime<ParsedCommand>;
+export type FramedCommand = WithFrameAndTime<ParsedCommand>;
+export type FramedCommandOfType<T extends TypeID> = WithFrameAndTime<CommandOfType<T>>;
 
 /**
  * Interface to expose user-friendly information about a replay, including computed properties. Consumes the (mostly) raw data from the
@@ -64,7 +66,7 @@ export class ParsedReplay {
   }
 
   @Memoize()
-  public get commands(): WithFrameAndTime<ParsedCommand>[] {
+  public get commands(): FramedCommand[] {
     return this._frames.flatMap((frame) =>
       frame.commands.map((command) => ({
         ...command,
@@ -86,7 +88,7 @@ export class ParsedReplay {
 
   @Memoize()
   public get leaveCommands() {
-    return this.commands.filter((command) => command.kind === TypeIDLeaveGame);
+    return this.commands.filter((command) => command.kind === TypeIDLeaveGame) as FramedCommandOfType<typeof TypeIDLeaveGame>[];
   }
 
   @Memoize()
@@ -101,7 +103,7 @@ export class ParsedReplay {
   public get chatMessages() {
     const chatCommands = this.commands.filter(
       (command) => command.kind === TypeIDChat
-    ) as WithFrameAndTime<CommandOfType<typeof TypeIDChat>>[];
+    ) as FramedCommandOfType<typeof TypeIDChat>[];
 
     return chatCommands.map((command) => ({
       sender: this.playersBySlotId[command.data.sender],
