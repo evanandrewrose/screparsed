@@ -9,6 +9,7 @@ import {
 } from "@/parser/sections/frames/commands";
 import { Memoize } from "typescript-memoize";
 import { Color, Colors } from "@/post-process/colors";
+import { determineEffectiveActions } from "@/post-process/eapm";
 
 export type WithFrameAndTime<T> = T & {
   frame: number;
@@ -27,6 +28,10 @@ export class ParsedReplay {
 
   public get durationMs() {
     return this._playerInfo.frames * 42;
+  }
+
+  public get durationMinutes() {
+    return this.durationMs / 1000 / 60;
   }
 
   public get gameInfo() {
@@ -83,6 +88,8 @@ export class ParsedReplay {
       .map((p) => ({
         ...p,
         color: Colors[this._playerInfo.playerColors[p.slotID].color],
+        apm: Math.round(this._actionsByPlayer[p.ID].length / this.durationMinutes),
+        eapm: Math.round(determineEffectiveActions(this._actionsByPlayer[p.ID]) / this.durationMinutes),
       }));
   }
 
@@ -110,5 +117,26 @@ export class ParsedReplay {
       message: command.data.message,
       timeMs: command.timeMs,
     }));
+  }
+
+  @Memoize()
+  private get _actionsByPlayer() {
+    const actionsByPlayerId: Record<
+      number,
+      FramedCommand[]
+      >
+    = {};
+
+    for (const command of this.commands) {
+      const playerActions = actionsByPlayerId[command.playerId];
+
+      if (playerActions) {
+        playerActions.push(command);
+      } else {
+        actionsByPlayerId[command.playerId] = [command];
+      }
+    }
+
+    return actionsByPlayerId;
   }
 }

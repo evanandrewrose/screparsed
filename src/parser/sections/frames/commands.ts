@@ -78,6 +78,92 @@ export const TypeIDSelect121 = 0x63;
 export const TypeIDSelectAdd121 = 0x64;
 export const TypeIDSelectRemove121 = 0x65;
 
+export const OrderIDStop = 0x01;
+export const OrderIDMove = 0x06;
+export const OrderIDReaverStop = 0x07;
+export const OrderIDAttack1 = 0x08;
+export const OrderIDAttack2 = 0x09;
+export const OrderIDAttackUnit = 0x0a;
+export const OrderIDAttackFixedRange = 0x0b;
+export const OrderIDAttackTile = 0x0c;
+export const OrderIDAttackMove = 0x0e;
+export const OrderIDPlaceProtossBuilding = 0x1f;
+export const OrderIDRallyPointUnit = 0x27;
+export const OrderIDRallyPointTile = 0x28;
+export const OrderIDCarrierStop = 0x34;
+export const OrderIDCarrierAttack = 0x35;
+export const OrderIDCarrierHoldPosition = 0x39;
+export const OrderIDReaverHoldPosition = 0x3e;
+export const OrderIDReaverAttack = 0x3b;
+export const OrderIDBuildingLand = 0x47;
+export const OrderIDHoldPosition = 0x6b;
+export const OrderIDQueenHoldPosition = 0x6c;
+export const OrderIDUnload = 0x6f;
+export const OrderIDMoveUnload = 0x70;
+export const OrderIDNukeLaunch = 0x7d;
+export const OrderIDCastRecall = 0x89;
+export const OrderIDCastScannerSweep = 0x8b;
+export const OrderIDMedicHoldPosition = 0xb2;
+
+export type OrderID =
+  | typeof OrderIDStop
+  | typeof OrderIDMove
+  | typeof OrderIDReaverStop
+  | typeof OrderIDAttack1
+  | typeof OrderIDAttack2
+  | typeof OrderIDAttackUnit
+  | typeof OrderIDAttackFixedRange
+  | typeof OrderIDAttackTile
+  | typeof OrderIDAttackMove
+  | typeof OrderIDPlaceProtossBuilding
+  | typeof OrderIDRallyPointUnit
+  | typeof OrderIDRallyPointTile
+  | typeof OrderIDCarrierStop
+  | typeof OrderIDCarrierAttack
+  | typeof OrderIDCarrierHoldPosition
+  | typeof OrderIDReaverHoldPosition
+  | typeof OrderIDReaverAttack
+  | typeof OrderIDBuildingLand
+  | typeof OrderIDHoldPosition
+  | typeof OrderIDQueenHoldPosition
+  | typeof OrderIDUnload
+  | typeof OrderIDMoveUnload
+  | typeof OrderIDNukeLaunch
+  | typeof OrderIDCastRecall
+  | typeof OrderIDCastScannerSweep
+  | typeof OrderIDMedicHoldPosition;
+
+export const StopOrders = [
+  OrderIDStop,
+  OrderIDReaverStop,
+  OrderIDCarrierStop,
+];
+
+export const HotkeyTypeIDAssign = 0x00;
+export const HotkeyTypeIDSelect = 0x01;
+export const HotkeyTypeIDAdd = 0x02;
+
+export type HotkeyTypeID = typeof HotkeyTypeIDAssign | typeof HotkeyTypeIDSelect | typeof HotkeyTypeIDAdd;
+
+export const HoldPositionOrders = [
+  OrderIDHoldPosition,
+  OrderIDQueenHoldPosition,
+  OrderIDReaverHoldPosition,
+  OrderIDCarrierHoldPosition,
+  OrderIDMedicHoldPosition
+];
+
+export const AttackOrders = [
+  OrderIDAttack1,
+  OrderIDAttack2,
+  OrderIDAttackUnit,
+  OrderIDAttackFixedRange,
+  OrderIDAttackTile,
+  OrderIDAttackMove,
+  OrderIDCarrierAttack,
+  OrderIDReaverAttack,
+];
+
 export const typeIdNames = {
   [TypeIDSaveGame]: "TypeIDSaveGame",
   [TypeIDLoadGame]: "TypeIDLoadGame",
@@ -247,7 +333,7 @@ const targetedOrderParser = (buffer: SmartBuffer) => ({
   y: buffer.readUInt16LE(),
   unitTag: buffer.readUInt16LE(),
   unit: UnitMapping[buffer.readUInt16LE()],
-  order: buffer.readUInt8(),
+  order: buffer.readUInt8() as OrderID,
   queued: buffer.readUInt8(),
 });
 
@@ -439,20 +525,24 @@ export const CommandParsers = {
 type CommandParserNames = keyof typeof CommandParsers;
 type CommandParsers = (typeof CommandParsers)[CommandParserNames];
 export type ParsedCommand = ReturnType<CommandParsers>;
-export type CommandOfType<T extends TypeID> = Exclude<ParsedCommand, 'kind'> & { kind: T };
+export type CommandOfType<T extends TypeID> = Exclude<ParsedCommand, "kind"> & {
+  kind: T;
+};
 
 export const parseCommand = (
   buffer: SmartBuffer,
   playerId: number,
   typeId: TypeID
-): {
-  success: true;
-  parsed: ParsedCommand
- } | {
-  success: false;
-  typeId: TypeID;
-  playerId: number;
- } => {
+):
+  | {
+      success: true;
+      parsed: ParsedCommand;
+    }
+  | {
+      success: false;
+      typeId: TypeID;
+      playerId: number;
+    } => {
   const parser = CommandParsers[typeId];
 
   if (parser === undefined) {
@@ -460,11 +550,11 @@ export const parseCommand = (
       success: false,
       typeId,
       playerId,
-    }
+    };
   }
 
   return {
     success: true,
     parsed: parser(playerId, buffer),
-  }
+  };
 };
