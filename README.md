@@ -44,6 +44,11 @@ configuration.
 const parser = ReplayParser.fromArrayBuffer(arrayBuffer);
 ```
 
+### Parse
+```typescript
+const parsed = await parser.parse();
+```
+
 ### Print game info, players (colors, race, name, apm, eapm), and chat messages
 ```typescript
 console.log(JSON.stringify({
