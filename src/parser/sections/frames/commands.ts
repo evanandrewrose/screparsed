@@ -133,24 +133,23 @@ export type OrderID =
   | typeof OrderIDCastScannerSweep
   | typeof OrderIDMedicHoldPosition;
 
-export const StopOrders = [
-  OrderIDStop,
-  OrderIDReaverStop,
-  OrderIDCarrierStop,
-];
+export const StopOrders = [OrderIDStop, OrderIDReaverStop, OrderIDCarrierStop];
 
 export const HotkeyTypeIDAssign = 0x00;
 export const HotkeyTypeIDSelect = 0x01;
 export const HotkeyTypeIDAdd = 0x02;
 
-export type HotkeyTypeID = typeof HotkeyTypeIDAssign | typeof HotkeyTypeIDSelect | typeof HotkeyTypeIDAdd;
+export type HotkeyTypeID =
+  | typeof HotkeyTypeIDAssign
+  | typeof HotkeyTypeIDSelect
+  | typeof HotkeyTypeIDAdd;
 
 export const HoldPositionOrders = [
   OrderIDHoldPosition,
   OrderIDQueenHoldPosition,
   OrderIDReaverHoldPosition,
   OrderIDCarrierHoldPosition,
-  OrderIDMedicHoldPosition
+  OrderIDMedicHoldPosition,
 ];
 
 export const AttackOrders = [

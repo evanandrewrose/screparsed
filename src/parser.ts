@@ -8,8 +8,8 @@ import { unzip } from "zlib";
 import { ParsedReplay } from "@/post-process/parsed";
 
 // A StarCraft: Remastered replay is a file composed of several "sections", each of which is composed of several "chunks". Each section
-// describes a different aspect of the replay, such as the header, player info, and frames, map data, etc. Depending on the section, the
-// chunks within may be compressed using zlib.
+// describes a different aspect of the replay, such as the header, player info, frames, map data, etc. Depending on the section, the chunks
+// within may be compressed using zlib.
 //
 // This parser is a work in progress. Currently, only the header, player info, and frames sections are parsed (frames being a logical step
 // of progression in the replay, containing some number of player commands that were issued. Below is a diagram of the high-level structure
@@ -59,7 +59,7 @@ import { ParsedReplay } from "@/post-process/parsed";
 // ┌──────────────────────────────────────────────────────┐   │ compressed using zlib. Each chunk is prefaced by a 4-byte integer
 // │?? ?? ?? ?? | ?? ?? ?? ?? | ?? ?? ?? ?? | ?? ?? ?? ?? |   │ (num bytes) describing the size of the chunk when compressed. We read each
 // └──────────────────────────────────────────────────────┘   │ chunk, decompress them individually, join them into a single buffer, and
-// [ gzip data assiciated with chunk 1 (first of many)        ┘ parse that buffer. This should be the case for future sections as well.
+// [ gzip data assiciated with chunk 1 (first of many)    ]   ┘ parse that buffer. This should be the case for future sections as well.
 // ```
 
 const REMASTERED_REPLAY_VERSION = "seRS";
@@ -133,7 +133,6 @@ export class ReplayParser {
 
     return new ParsedReplay(playerInfo, frames);
   }
-
 
   /**
    * Similar logic to {@link nextSection} but doesn't bother aggregating the chunks, so it should be a bit faster

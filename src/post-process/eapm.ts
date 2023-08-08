@@ -1,49 +1,35 @@
 import {
-  AttackOrders,
-  HoldPositionOrders,
-  HotkeyTypeIDAdd,
-  HotkeyTypeIDAssign,
-  HotkeyTypeIDSelect,
-  OrderIDMove,
-  OrderIDRallyPointTile,
-  OrderIDRallyPointUnit,
-  StopOrders,
-  TypeIDBuildingMorph,
-  TypeIDCancelAddon,
-  TypeIDCancelBuild,
-  TypeIDCancelMorph,
-  TypeIDCancelNuke,
-  TypeIDCancelTech,
-  TypeIDCancelTrain,
-  TypeIDCancelUpgrade,
-  TypeIDHoldPosition,
-  TypeIDHotkey,
-  TypeIDLiftOff,
-  TypeIDMergeArchon,
-  TypeIDMergeDarkArchon,
-  TypeIDSelect,
-  TypeIDSelect121,
-  TypeIDSelectAdd,
-  TypeIDSelectAdd121,
-  TypeIDSelectRemove,
-  TypeIDSelectRemove121,
-  TypeIDStop,
-  TypeIDTargetedOrder,
-  TypeIDTargetedOrder121,
-  TypeIDTech,
-  TypeIDTrain,
-  TypeIDTrainFighter,
-  TypeIDUnitMorph,
-  TypeIDUpgrade,
+    HotkeyTypeIDAdd,
+    HotkeyTypeIDAssign,
+    HotkeyTypeIDSelect,
+    TypeIDBuildingMorph,
+    TypeIDCancelAddon,
+    TypeIDCancelBuild,
+    TypeIDCancelMorph,
+    TypeIDCancelNuke,
+    TypeIDCancelTech,
+    TypeIDCancelUpgrade,
+    TypeIDHotkey,
+    TypeIDLiftOff,
+    TypeIDMergeArchon,
+    TypeIDMergeDarkArchon,
+    TypeIDSelect,
+    TypeIDSelect121,
+    TypeIDSelectAdd,
+    TypeIDSelectAdd121,
+    TypeIDSelectRemove,
+    TypeIDSelectRemove121,
+    TypeIDUnitMorph,
+    TypeIDUpgrade
 } from "@/parser/sections/frames/commands";
 import { FramedCommand, FramedCommandOfType } from "@/post-process/parsed";
 
-// Note: this is an attempted port of the eapm logic from
+// Note: this is an rough approximation of the eapm logic from
 // https://github.com/icza/screp/blob/b35f110c66f27653d922fc2e748420fa08d34df1/rep/eapm-util.go
 // the goal isn't perfect parity, but to get something that's close enough. In practice, it's off by ~3-4%
 // compared to the original implementation.
 
-type ActionsPerFrame = 0 | 1;
+type ActionsPerCommand = 0 | 1;
 
 const isSelectionChangeCommand = (command: FramedCommand) => {
   switch (command.kind) {
@@ -90,14 +76,7 @@ const numActionsForCommand = (
   command: FramedCommand,
   commands: readonly FramedCommand[],
   frame: number
-): ActionsPerFrame => {
-  const previousCommands = function* (limit: number = 6) {
-    let lookBackFrame = frame - 1;
-    while (lookBackFrame >= 0 && limit-- > 0) {
-      yield commands[lookBackFrame--];
-    }
-  };
-
+): ActionsPerCommand => {
   const previousCommand = commands[frame - 1];
 
   if (!previousCommand) {
@@ -107,56 +86,6 @@ const numActionsForCommand = (
   const previousKind = previousCommand.kind;
   const kind = command.kind;
   const deltaFrames = frame - previousCommand.frame;
-
-  // unit queue overflow
-  if ([TypeIDTrain, TypeIDTrainFighter, TypeIDCancelTrain].includes(kind)) {
-    let repeatedTrainCommands = 0;
-    for (const previousCommand of previousCommands()) {
-      if (frame - previousCommand.frame > 25) {
-        break;
-      }
-
-      if (previousCommand.kind === kind) {
-        repeatedTrainCommands += 1;
-      } else {
-        break;
-      }
-    }
-
-    if (repeatedTrainCommands >= 6) {
-      return 0; // train queue overflow
-    }
-  }
-
-  // redundant repeated actions executed too quickly
-  if (deltaFrames <= 10 && previousKind === kind) {
-    switch (kind) {
-      case TypeIDStop:
-      case TypeIDHoldPosition:
-        return 0;
-      case TypeIDTargetedOrder:
-      case TypeIDTargetedOrder121:
-        const previousTargetedOrder = previousCommand as FramedCommandOfType<
-          typeof TypeIDTargetedOrder
-        >;
-        const orderId = command.data.order;
-        const previousOrderId = previousTargetedOrder.data.order;
-
-        if (
-          orderId === previousOrderId &&
-          [
-            ...AttackOrders,
-            ...HoldPositionOrders,
-            ...StopOrders,
-            OrderIDMove,
-            OrderIDRallyPointUnit,
-            OrderIDRallyPointTile,
-          ].includes(orderId) && command.data.unitTag === previousTargetedOrder.data.unitTag
-        ) {
-          return 0;
-        }
-    }
-  }
 
   // select and deselect too quickly to even see selection
   if (
@@ -169,7 +98,7 @@ const numActionsForCommand = (
     const previousCommandWasDoubleTap =
       morePreviousCommand && isDoubleTap(previousCommand, morePreviousCommand);
     if (commandIsDoubleTap && previousCommandWasDoubleTap) {
-        return 0;
+      return 0;
     }
     if (!commandIsDoubleTap) {
       return 0;
@@ -216,4 +145,4 @@ const numActionsForCommand = (
 export const determineEffectiveActions = (commands: FramedCommand[]) =>
   commands
     .map((command, frame) => numActionsForCommand(command, commands, frame))
-    .reduce((a: number, b: ActionsPerFrame) => a + b, 0);
+    .reduce((a: number, b: ActionsPerCommand) => a + b, 0);

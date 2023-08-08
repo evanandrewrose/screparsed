@@ -1,10 +1,11 @@
 import { Buffer } from "buffer";
 
 /**
- * A helper for reading bytes from a ReadableStream.
+ * A helper for reading bytes from a ReadableStream
+ *
  *
  * @example
- * Example using a Node ReadStream (convert to ReadableStream first):
+ * Example using a Node {@link ReadStream} (convert to ReadableStream first):
  * ```
  * const file = await open(replay, O_RDONLY);
  * const readStream = file.createReadStream();
@@ -27,7 +28,7 @@ import { Buffer } from "buffer";
  * ```
  *
  * @example
- * Example using a Fetch Response (convert to ReadableStream first):
+ * Example using a {@link fetch} response:
  * ```
  * const response = await fetch(replay);
  * const streamReader = new StreamReader(response.body);
@@ -37,16 +38,11 @@ import { Buffer } from "buffer";
  */
 export class StreamReader {
   private byobReader: ReadableStreamBYOBReader;
-  private _readOffset: number = 0;
 
   constructor(private stream: ReadableStream) {
     this.byobReader = this.stream.getReader({
       mode: "byob",
     });
-  }
-
-  public get readOffset() {
-    return this._readOffset;
   }
 
   public async read(length: number): Promise<Buffer> {

@@ -22,11 +22,12 @@ const HeaderParser = new Parser()
 export const HeaderSize = HeaderParser.sizeOf();
 
 export type Header = {
-    crc: number;
-    chunks: number;
-    bytes: number;
-    replayVersion: string;
-    remainingFileSize: number;
-}
+  crc: number;
+  chunks: number;
+  bytes: number;
+  replayVersion: string;
+  remainingFileSize: number;
+};
 
-export const parseHeader = (buffer: Buffer): Header => HeaderParser.parse(buffer);
+export const parseHeader = (buffer: Buffer): Header =>
+  HeaderParser.parse(buffer);

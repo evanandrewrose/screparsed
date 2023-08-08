@@ -20,11 +20,11 @@ export type FramedCommand = WithFrameAndTime<ParsedCommand>;
 export type FramedCommandOfType<T extends TypeID> = WithFrameAndTime<CommandOfType<T>>;
 
 /**
- * Interface to expose user-friendly information about a replay, including computed properties. Consumes the (mostly) raw data from the
+ * User-friendly information about a replay, including computed properties. Consumes the (mostly) raw data from the
  * parser.
  */
 export class ParsedReplay {
-  constructor(private _playerInfo: PlayerInfo, private _frames: Frame[]) {}
+  constructor(private readonly _playerInfo: PlayerInfo, private readonly _frames: Frame[]) {}
 
   public get durationMs() {
     return this._playerInfo.frames * 42;
@@ -84,7 +84,7 @@ export class ParsedReplay {
   @Memoize()
   public get players(): Array<PlayerStruct & { color: Color }> {
     return this._playerInfo.playerStructs
-      .filter((p) => p.name !== "")
+      .filter((p) => p.name !== "") // filter out empty slots
       .map((p) => ({
         ...p,
         color: Colors[this._playerInfo.playerColors[p.slotID].color],
