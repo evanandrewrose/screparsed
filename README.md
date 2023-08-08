@@ -19,24 +19,24 @@ This package should work out-of-the-box for NodeJS environments. In the browser,
 
 ### Constructing via file in NodeJS
 ```typescript
-  const file = await open(replay, O_RDONLY);
-  const readStream = file.createReadStream();
-  const parser = ReplayParser.fromReadableStream(
-    new ReadableStream({
-      start(controller) {
-        readStream.on("data", (chunk) => {
-          controller.enqueue(chunk);
-        });
-        readStream.on("end", () => {
-          controller.close();
-        });
-        readStream.on("error", (err) => {
-          controller.error(err);
-        });
-      },
-      type: "bytes",
-    });
-  );
+const file = await open(replay, O_RDONLY);
+const readStream = file.createReadStream();
+const parser = ReplayParser.fromReadableStream(
+  new ReadableStream({
+    start(controller) {
+      readStream.on("data", (chunk) => {
+        controller.enqueue(chunk);
+      });
+      readStream.on("end", () => {
+        controller.close();
+      });
+      readStream.on("error", (err) => {
+        controller.error(err);
+      });
+    },
+    type: "bytes",
+  });
+);
 ```
 
 ### Constructing via ArrayBuffer (e.g., after fetch in browser)
