@@ -28,9 +28,7 @@
 	{#each parsed.chatMessages as message}
 		<p>
 			<span
-				style="color: #{message.sender.color.rgb
-					.toString(16)
-					.padStart(6, '0')}; font-weight: bold; text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);"
+				style="color: {message.sender.color.hexString}; text-shadow: 0 0 1px black;"
 			>
 				{message.sender.name}</span
 			>: <span>{message.message}</span>

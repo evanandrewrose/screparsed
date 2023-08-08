@@ -1,6 +1,7 @@
 import { Parser } from "binary-parser";
 import { Buffer } from "buffer";
 
+// Data skipped below is unknown (padding / alignment / unused?)
 const PlayerInfoParser = new Parser()
   .endianess("little")
   .int8("engine")

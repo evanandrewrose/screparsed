@@ -30,16 +30,11 @@ const run = async (replay: string) => {
       readStreamToReadableStream(readStream)
     );
     const parsed = await parser.parse();
-    const duration = parsed.leaveCommands[0].timeMs / 1000;
-    console.log(
-      `game was this long: ${Math.floor(duration / 60)}:${Math.floor(
-        duration % 60
-      )}`
-    );
-
-    console.log(JSON.stringify(parsed.chatMessages, null, 2));
-
-    console.log(JSON.stringify(parsed.players, null, 2));
+    console.log(JSON.stringify({
+      gameInfo: parsed.gameInfo,
+      players: parsed.players,
+      messages: parsed.chatMessages.map((message) => `${message.sender.name}: ${message.message}`),
+    }, null, 2));
   } finally {
     await file.close();
   }

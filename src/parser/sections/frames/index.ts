@@ -8,7 +8,7 @@ export interface Frame {
 }
 
 export function* parseFramesSection(frames: Buffer): Generator<Frame> {
-  const buffer = SmartBuffer.fromBuffer(frames as any);
+  const buffer = SmartBuffer.fromBuffer(frames);
 
   while (buffer.readOffset < buffer.length) {
     const frameNumber = buffer.readUInt32LE();
