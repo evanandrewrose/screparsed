@@ -1,4 +1,4 @@
-import { PlayerInfo } from "@/parser/sections/player_info";
+import { PlayerInfo, PlayerStruct } from "@/parser/sections/player_info";
 import { Frame } from "@/parser/sections/frames";
 import {
   ParsedCommand,
@@ -7,6 +7,7 @@ import {
   TypeIDLeaveGame,
 } from "@/parser/sections/frames/commands";
 import { Memoize } from "typescript-memoize";
+import { Color, Colors } from "./colors";
 
 export type WithFrameAndTime<T> = T & {
   frame: number;
@@ -28,6 +29,38 @@ export class ParsedReplay {
     return this.playerInfo.frames * 42;
   }
 
+  public get gameInfo() {
+    const {
+      engine,
+      frames,
+      startTime,
+      title,
+      mapWidth,
+      mapHeight,
+      availableSlotsCount,
+      speed,
+      type,
+      subType,
+      host,
+      map,
+    } = this.playerInfo;
+
+    return {
+      engine,
+      frames,
+      startTime,
+      title,
+      mapWidth,
+      mapHeight,
+      availableSlotsCount,
+      speed,
+      type,
+      subType,
+      host,
+      map,
+    }
+  }
+
   @Memoize()
   public get commands(): WithFrameAndTime<ParsedCommand<TypeID>>[] {
     return this.frames.flatMap((frame) =>
@@ -40,8 +73,13 @@ export class ParsedReplay {
   }
 
   @Memoize()
-  public get players() {
-    return this.playerInfo.playerStructs.filter((p) => p.name !== "");
+  public get players(): Array<PlayerStruct & { color: Color }> {
+    return this.playerInfo.playerStructs
+      .filter((p) => p.name !== "")
+      .map((p) => ({
+        ...p,
+        color: Colors[this.playerInfo.playerColors[p.slotID].color],
+      }));
   }
 
   @Memoize()

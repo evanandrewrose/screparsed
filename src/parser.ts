@@ -5,8 +5,7 @@ import { StreamReader } from "@/util";
 import { Buffer } from "buffer";
 import { promisify } from "util";
 import { unzip } from "zlib";
-import { ParsedReplay } from "@/parsed";
-import { parsePlayerColors } from "./parser/sections/colors";
+import { ParsedReplay } from "@/post-process/parsed";
 
 // A StarCraft: Remastered replay is a file composed of several "sections", each of which is composed of several "chunks". Each section
 // describes a different aspect of the replay, such as the header, player info, and frames, map data, etc. Depending on the section, the
@@ -122,7 +121,6 @@ export class ReplayParser {
     }
 
     const playerInfo = parsePlayerInfo(await this.nextSection(true));
-    console.log(JSON.stringify(playerInfo, null, 2));
 
     await this.skipNextSection(); // this section describes the size of next section; we allocate dynamically instead
     const framesSection = await this.nextSection(true);
@@ -132,35 +130,6 @@ export class ReplayParser {
     for (const frame of parseFramesSection(framesSection)) {
       frames.push(frame);
     }
-
-    await this.skipNextSection(); // skip map data size section
-    await this.skipNextSection(); // skip map data section
-    await this.skipNextSection(); // skip player names section
-
-    // future "modern" sections have sectionid + section size before each, though they're in a predictable order
-    const skinsSectionId = (await this.stream.read(4)).readUint32LE();
-    await this.stream.read(4); // skip remaining section size
-    await this.skipNextSection(); // skip skins section
-
-    const lmtsSectionId = (await this.stream.read(4)).readUint32LE();
-    await this.stream.read(4); // skip remaining section size
-    await this.skipNextSection(); // skip skins section
-
-    const bfixSectionId = (await this.stream.read(4)).readUint32LE();
-    await this.stream.read(4); // skip remaining section size
-    await this.skipNextSection(); // skip skins section
-
-    const playerColorsSectionId = (await this.stream.read(4)).toString();
-    console.log(playerColorsSectionId);
-    const playerColorsSectionSize = (await this.stream.read(4)).readUint32LE(); // skip remaining section size
-    console.log(playerColorsSectionSize);
-
-    const playerColors = parsePlayerColors(await this.nextSection(true));
-
-    await this.stream.read(4); // skip sectionid
-    await this.stream.read(4); // skip remaining section size
-    await this.skipNextSection(); // skip gcfg section
-    console.log(playerColors);
 
     return new ParsedReplay(playerInfo, frames);
   }
