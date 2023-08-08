@@ -1,32 +1,30 @@
 import { PlayerInfo, PlayerStruct } from "@/parser/sections/player_info";
 import { Frame } from "@/parser/sections/frames";
 import {
+  CommandOfType,
   ParsedCommand,
-  TypeID,
   TypeIDChat,
   TypeIDLeaveGame,
 } from "@/parser/sections/frames/commands";
 import { Memoize } from "typescript-memoize";
-import { Color, Colors } from "./colors";
+import { Color, Colors } from "@/post-process/colors";
 
 export type WithFrameAndTime<T> = T & {
   frame: number;
   timeMs: number;
 };
 
-export type ParsedCommandWithFrameAndTime<T extends TypeID> = WithFrameAndTime<
-  ParsedCommand<T>
->;
+export type ParsedCommandWithFrameAndTime = WithFrameAndTime<ParsedCommand>;
 
 /**
  * Interface to expose user-friendly information about a replay, including computed properties. Consumes the (mostly) raw data from the
  * parser.
  */
 export class ParsedReplay {
-  constructor(private playerInfo: PlayerInfo, private frames: Frame[]) {}
+  constructor(private _playerInfo: PlayerInfo, private _frames: Frame[]) {}
 
   public get durationMs() {
-    return this.playerInfo.frames * 42;
+    return this._playerInfo.frames * 42;
   }
 
   public get gameInfo() {
@@ -43,7 +41,7 @@ export class ParsedReplay {
       subType,
       host,
       map,
-    } = this.playerInfo;
+    } = this._playerInfo;
 
     return {
       engine,
@@ -61,30 +59,34 @@ export class ParsedReplay {
     }
   }
 
+  public get frames() {
+    return this._playerInfo.frames;
+  }
+
   @Memoize()
-  public get commands(): WithFrameAndTime<ParsedCommand<TypeID>>[] {
-    return this.frames.flatMap((frame) =>
+  public get commands(): WithFrameAndTime<ParsedCommand>[] {
+    return this._frames.flatMap((frame) =>
       frame.commands.map((command) => ({
         ...command,
         frame: frame.frameNumber,
-        timeMs: frame.frameNumber * 42,
+        timeMs: frame.frameNumber * 42, // 42 ms per frame
       }))
     );
   }
 
   @Memoize()
   public get players(): Array<PlayerStruct & { color: Color }> {
-    return this.playerInfo.playerStructs
+    return this._playerInfo.playerStructs
       .filter((p) => p.name !== "")
       .map((p) => ({
         ...p,
-        color: Colors[this.playerInfo.playerColors[p.slotID].color],
+        color: Colors[this._playerInfo.playerColors[p.slotID].color],
       }));
   }
 
   @Memoize()
   public get leaveCommands() {
-    return this.commands.filter((command) => command.type === TypeIDLeaveGame);
+    return this.commands.filter((command) => command.kind === TypeIDLeaveGame);
   }
 
   @Memoize()
@@ -98,8 +100,8 @@ export class ParsedReplay {
   @Memoize()
   public get chatMessages() {
     const chatCommands = this.commands.filter(
-      (command) => command.type === TypeIDChat
-    ) as ParsedCommandWithFrameAndTime<typeof TypeIDChat>[];
+      (command) => command.kind === TypeIDChat
+    ) as WithFrameAndTime<CommandOfType<typeof TypeIDChat>>[];
 
     return chatCommands.map((command) => ({
       sender: this.playersBySlotId[command.data.sender],

@@ -155,14 +155,9 @@ export const typeIdNames = {
   [TypeIDSelect121]: "TypeIDSelect121",
   [TypeIDSelectAdd121]: "TypeIDSelectAdd121",
   [TypeIDSelectRemove121]: "TypeIDSelectRemove121",
-};
+} as const;
 
 export type TypeID = keyof typeof typeIdNames;
-
-type CustomParser = (buffer: SmartBuffer) => any;
-type NoAdditionalDataParser = number; // number can be used to specify the size of the data that we're ignoring, if any
-
-type CommandParser = CustomParser | NoAdditionalDataParser;
 
 const parseSaveLoadGame = (buffer: SmartBuffer) => {
   const size = buffer.readUInt16LE();
@@ -313,138 +308,163 @@ const select121Parser = (buffer: SmartBuffer) => {
   return { selections };
 };
 
-export const CommandParsers: {
-  [key in TypeID]: CommandParser;
-} = {
+const createTypedSkipParser =
+  <T extends TypeID>(type: T, bytes: number = 0) =>
+  (playerId: number, buffer: SmartBuffer) => {
+    buffer.readOffset += bytes;
+
+    return { kind: type, typeName: typeIdNames[type], playerId };
+  };
+
+const createTypedParser =
+  <T extends TypeID, P extends (buffer: SmartBuffer) => any>(
+    type: T,
+    parser: P
+  ) =>
+  (playerId: number, buffer: SmartBuffer) => ({
+    kind: type,
+    typeName: typeIdNames[type],
+    playerId,
+    data: parser(buffer) as ReturnType<P>,
+  });
+
+export const CommandParsers = {
   // Command which have no additional data
-  [TypeIDCancelBuild]: 0,
-  [TypeIDCancelMorph]: 0,
-  [TypeIDPause]: 0,
-  [TypeIDResume]: 0,
-  [TypeIDRestartGame]: 0,
-  [TypeIDMergeDarkArchon]: 0,
-  [TypeIDMakeGamePublic]: 0,
-  [TypeIDCarrierStop]: 0,
-  [TypeIDReaverStop]: 0,
-  [TypeIDOrderNothing]: 0,
-  [TypeIDTrainFighter]: 0,
-  [TypeIDMergeArchon]: 0,
-  [TypeIDCancelNuke]: 0,
-  [TypeIDCancelTech]: 0,
-  [TypeIDCancelUpgrade]: 0,
-  [TypeIDCancelAddon]: 0,
-  [TypeIDStim]: 0,
-  [TypeIDVoiceEnable]: 0,
-  [TypeIDVoiceDisable]: 0,
-  [TypeIDStartGame]: 0,
-  [TypeIDBriefingStart]: 0,
+  [TypeIDCancelBuild]: createTypedSkipParser(TypeIDCancelBuild),
+  [TypeIDCancelMorph]: createTypedSkipParser(TypeIDCancelMorph),
+  [TypeIDPause]: createTypedSkipParser(TypeIDPause),
+  [TypeIDResume]: createTypedSkipParser(TypeIDResume),
+  [TypeIDRestartGame]: createTypedSkipParser(TypeIDRestartGame),
+  [TypeIDMergeDarkArchon]: createTypedSkipParser(TypeIDMergeDarkArchon),
+  [TypeIDMakeGamePublic]: createTypedSkipParser(TypeIDMakeGamePublic),
+  [TypeIDCarrierStop]: createTypedSkipParser(TypeIDCarrierStop),
+  [TypeIDReaverStop]: createTypedSkipParser(TypeIDReaverStop),
+  [TypeIDOrderNothing]: createTypedSkipParser(TypeIDOrderNothing),
+  [TypeIDTrainFighter]: createTypedSkipParser(TypeIDTrainFighter),
+  [TypeIDMergeArchon]: createTypedSkipParser(TypeIDMergeArchon),
+  [TypeIDCancelNuke]: createTypedSkipParser(TypeIDCancelNuke),
+  [TypeIDCancelTech]: createTypedSkipParser(TypeIDCancelTech),
+  [TypeIDCancelUpgrade]: createTypedSkipParser(TypeIDCancelUpgrade),
+  [TypeIDCancelAddon]: createTypedSkipParser(TypeIDCancelAddon),
+  [TypeIDStim]: createTypedSkipParser(TypeIDStim),
+  [TypeIDVoiceEnable]: createTypedSkipParser(TypeIDVoiceEnable),
+  [TypeIDVoiceDisable]: createTypedSkipParser(TypeIDVoiceDisable),
+  [TypeIDStartGame]: createTypedSkipParser(TypeIDStartGame),
+  [TypeIDBriefingStart]: createTypedSkipParser(TypeIDBriefingStart),
 
   // have additioanl data, but we ignore it, number indicates how many bytes we ignore
-  [TypeIDSync]: 6,
-  [TypeIDVoiceSquelch]: 1,
-  [TypeIDVoiceUnsquelch]: 1,
-  [TypeIDDownloadPercentage]: 1,
-  [TypeIDChangeGameSlot]: 5,
-  [TypeIDNewNetPlayer]: 7,
-  [TypeIDJoinedGame]: 17,
-  [TypeIDChangeRace]: 2,
-  [TypeIDTeamGameTeam]: 1,
-  [TypeIDUMSTeam]: 0,
-  [TypeIDMeleeTeam]: 2,
-  [TypeIDSwapPlayers]: 2,
-  [TypeIDSavedData]: 12,
-  [TypeIDReplaySpeed]: 9,
+  [TypeIDSync]: createTypedSkipParser(TypeIDSync, 6),
+  [TypeIDVoiceSquelch]: createTypedSkipParser(TypeIDVoiceSquelch, 1),
+  [TypeIDVoiceUnsquelch]: createTypedSkipParser(TypeIDVoiceUnsquelch, 1),
+  [TypeIDDownloadPercentage]: createTypedSkipParser(
+    TypeIDDownloadPercentage,
+    1
+  ),
+  [TypeIDChangeGameSlot]: createTypedSkipParser(TypeIDChangeGameSlot, 5),
+  [TypeIDNewNetPlayer]: createTypedSkipParser(TypeIDNewNetPlayer, 7),
+  [TypeIDJoinedGame]: createTypedSkipParser(TypeIDJoinedGame, 17),
+  [TypeIDChangeRace]: createTypedSkipParser(TypeIDChangeRace, 2),
+  [TypeIDTeamGameTeam]: createTypedSkipParser(TypeIDTeamGameTeam, 1),
+  [TypeIDUMSTeam]: createTypedSkipParser(TypeIDUMSTeam, 0),
+  [TypeIDMeleeTeam]: createTypedSkipParser(TypeIDMeleeTeam, 2),
+  [TypeIDSwapPlayers]: createTypedSkipParser(TypeIDSwapPlayers, 2),
+  [TypeIDSavedData]: createTypedSkipParser(TypeIDSavedData, 12),
+  [TypeIDReplaySpeed]: createTypedSkipParser(TypeIDReplaySpeed, 9),
 
   // have additional data and we parse it using the given parser
-  [TypeIDSaveGame]: parseSaveLoadGame,
-  [TypeIDLoadGame]: parseSaveLoadGame,
-  [TypeIDSelect]: selectionParser,
-  [TypeIDSelectAdd]: selectionParser,
-  [TypeIDSelectRemove]: selectionParser,
-  [TypeIDBuild]: buildParser,
-  [TypeIDVision]: visionParser,
-  [TypeIDAlliance]: allianceParser,
-  [TypeIDGameSpeed]: gameSpeedParser,
-  [TypeIDCheat]: cheatParser,
-  [TypeIDHotkey]: hotkeyParser,
-  [TypeIDRightClick]: rightClickParser,
-  [TypeIDTargetedOrder]: targetedOrderParser,
-  [TypeIDStop]: queueableCommandParser,
-  [TypeIDReturnCargo]: queueableCommandParser,
-  [TypeIDTrain]: trainOrMorphParser,
-  [TypeIDCancelTrain]: cancelTrainParser,
-  [TypeIDCloak]: queueableCommandParser,
-  [TypeIDDecloak]: queueableCommandParser,
-  [TypeIDUnitMorph]: trainOrMorphParser,
-  [TypeIDUnsiege]: queueableCommandParser,
-  [TypeIDSiege]: queueableCommandParser,
-  [TypeIDUnloadAll]: queueableCommandParser,
-  [TypeIDUnload]: unloadParser,
-  [TypeIDHoldPosition]: queueableCommandParser,
-  [TypeIDBurrow]: queueableCommandParser,
-  [TypeIDUnburrow]: queueableCommandParser,
-  [TypeIDLiftOff]: liftOffParser,
-  [TypeIDTech]: techParser,
-  [TypeIDUpgrade]: upgradeParser,
-  [TypeIDBuildingMorph]: buildingMorphParser,
-  [TypeIDLatency]: latencyParser,
-  [TypeIDLeaveGame]: leaveGameParser,
-  [TypeIDMinimapPing]: minimapPingParser,
-  [TypeIDChat]: chatParser,
-  [TypeIDRightClick121]: rightClick121Parser,
-  [TypeIDTargetedOrder121]: targetedOrder121Parser,
-  [TypeIDUnload121]: unload121Parser,
-  [TypeIDSelect121]: select121Parser,
-  [TypeIDSelectAdd121]: select121Parser,
-  [TypeIDSelectRemove121]: select121Parser,
+  [TypeIDSaveGame]: createTypedParser(TypeIDSaveGame, parseSaveLoadGame),
+  [TypeIDLoadGame]: createTypedParser(TypeIDLoadGame, parseSaveLoadGame),
+  [TypeIDSelect]: createTypedParser(TypeIDSelect, selectionParser),
+  [TypeIDSelectAdd]: createTypedParser(TypeIDSelectAdd, selectionParser),
+  [TypeIDSelectRemove]: createTypedParser(TypeIDSelectRemove, selectionParser),
+  [TypeIDBuild]: createTypedParser(TypeIDBuild, buildParser),
+  [TypeIDVision]: createTypedParser(TypeIDVision, visionParser),
+  [TypeIDAlliance]: createTypedParser(TypeIDAlliance, allianceParser),
+  [TypeIDGameSpeed]: createTypedParser(TypeIDGameSpeed, gameSpeedParser),
+  [TypeIDCheat]: createTypedParser(TypeIDCheat, cheatParser),
+  [TypeIDHotkey]: createTypedParser(TypeIDHotkey, hotkeyParser),
+  [TypeIDRightClick]: createTypedParser(TypeIDRightClick, rightClickParser),
+  [TypeIDTargetedOrder]: createTypedParser(
+    TypeIDTargetedOrder,
+    targetedOrderParser
+  ),
+  [TypeIDStop]: createTypedParser(TypeIDStop, queueableCommandParser),
+  [TypeIDReturnCargo]: createTypedParser(
+    TypeIDReturnCargo,
+    queueableCommandParser
+  ),
+  [TypeIDTrain]: createTypedParser(TypeIDTrain, trainOrMorphParser),
+  [TypeIDCancelTrain]: createTypedParser(TypeIDCancelTrain, cancelTrainParser),
+  [TypeIDCloak]: createTypedParser(TypeIDCloak, queueableCommandParser),
+  [TypeIDDecloak]: createTypedParser(TypeIDDecloak, queueableCommandParser),
+  [TypeIDUnitMorph]: createTypedParser(TypeIDUnitMorph, trainOrMorphParser),
+  [TypeIDUnsiege]: createTypedParser(TypeIDUnsiege, queueableCommandParser),
+  [TypeIDSiege]: createTypedParser(TypeIDSiege, queueableCommandParser),
+  [TypeIDUnloadAll]: createTypedParser(TypeIDUnloadAll, queueableCommandParser),
+  [TypeIDUnload]: createTypedParser(TypeIDUnload, unloadParser),
+  [TypeIDHoldPosition]: createTypedParser(
+    TypeIDHoldPosition,
+    queueableCommandParser
+  ),
+  [TypeIDBurrow]: createTypedParser(TypeIDBurrow, queueableCommandParser),
+  [TypeIDUnburrow]: createTypedParser(TypeIDUnburrow, queueableCommandParser),
+  [TypeIDLiftOff]: createTypedParser(TypeIDLiftOff, liftOffParser),
+  [TypeIDTech]: createTypedParser(TypeIDTech, techParser),
+  [TypeIDUpgrade]: createTypedParser(TypeIDUpgrade, upgradeParser),
+  [TypeIDBuildingMorph]: createTypedParser(
+    TypeIDBuildingMorph,
+    buildingMorphParser
+  ),
+  [TypeIDLatency]: createTypedParser(TypeIDLatency, latencyParser),
+  [TypeIDLeaveGame]: createTypedParser(TypeIDLeaveGame, leaveGameParser),
+  [TypeIDMinimapPing]: createTypedParser(TypeIDMinimapPing, minimapPingParser),
+  [TypeIDChat]: createTypedParser(TypeIDChat, chatParser),
+  [TypeIDRightClick121]: createTypedParser(
+    TypeIDRightClick121,
+    rightClick121Parser
+  ),
+  [TypeIDTargetedOrder121]: createTypedParser(
+    TypeIDTargetedOrder121,
+    targetedOrder121Parser
+  ),
+  [TypeIDUnload121]: createTypedParser(TypeIDUnload121, unload121Parser),
+  [TypeIDSelect121]: createTypedParser(TypeIDSelect121, select121Parser),
+  [TypeIDSelectAdd121]: createTypedParser(TypeIDSelectAdd121, select121Parser),
+  [TypeIDSelectRemove121]: createTypedParser(
+    TypeIDSelectRemove121,
+    select121Parser
+  ),
 } as const;
 
-type CommandParserForTypeID<T extends TypeID> = (typeof CommandParsers)[T];
-
-type CommandReturnType<T extends TypeID> = T extends typeof TypeIDChat
-  ? ReturnType<typeof chatParser>
-  : CommandParserForTypeID<T> extends number
-  ? number
-  : ReturnType<Exclude<CommandParserForTypeID<T>, number>>[T];
-
-export interface ParsedCommand<T extends TypeID> {
-  type: T;
-  typeName: string;
-  playerId: number;
-  data: CommandReturnType<T>;
-}
+type CommandParserNames = keyof typeof CommandParsers;
+type CommandParsers = (typeof CommandParsers)[CommandParserNames];
+export type ParsedCommand = ReturnType<CommandParsers>;
+export type CommandOfType<T extends TypeID> = Exclude<ParsedCommand, 'kind'> & { kind: T };
 
 export const parseCommand = (
   buffer: SmartBuffer,
   playerId: number,
   typeId: TypeID
-): ParsedCommand<TypeID> => {
+): {
+  success: true;
+  parsed: ParsedCommand
+ } | {
+  success: false;
+  typeId: TypeID;
+  playerId: number;
+ } => {
   const parser = CommandParsers[typeId];
 
   if (parser === undefined) {
-    console.warn(`Unknown command type ${typeId}`);
     return {
-      type: typeId,
-      typeName: 'Unknown',
+      success: false,
+      typeId,
       playerId,
-      data: null,
-    };
-  }
-
-  if (typeof parser === "number") {
-    buffer.readOffset += parser;
-    return {
-      type: typeId,
-      typeName: typeIdNames[typeId],
-      playerId,
-      data: null,
-    };
+    }
   }
 
   return {
-    type: typeId,
-    typeName: typeIdNames[typeId],
-    playerId,
-    data: parser(buffer),
-  };
+    success: true,
+    parsed: parser(playerId, buffer),
+  }
 };

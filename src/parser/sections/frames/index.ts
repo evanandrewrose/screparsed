@@ -4,7 +4,7 @@ import { Buffer } from "buffer";
 
 export interface Frame {
   frameNumber: number;
-  commands: ParsedCommand<TypeID>[];
+  commands: ParsedCommand[];
 }
 
 export function* parseFramesSection(frames: Buffer): Generator<Frame> {
@@ -21,10 +21,12 @@ export function* parseFramesSection(frames: Buffer): Generator<Frame> {
       const commandType = buffer.readUInt8();
       const command = parseCommand(buffer, playerId, commandType as TypeID);
 
-      if (command === null) {
+      if (command.success === false) {
+        // jump to the end of the frame. we can't parse the remaining commands in this frame, since we don't know the size of this
+        // unparsable one
         buffer.readOffset = endOfFrame;
       } else {
-        commands.push(command);
+        commands.push(command.parsed);
       }
     }
 
