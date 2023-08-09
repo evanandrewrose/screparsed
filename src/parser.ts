@@ -1,5 +1,5 @@
 import { HeaderSize, parseHeader } from "@/parser/sections/header";
-import { parsePlayerInfo } from "@/parser/sections/player_info";
+import { parseGameInfo } from "@/parser/sections/game-info";
 import { Frame, parseFramesSection } from "@/parser/sections/frames";
 import { StreamReader } from "@/util";
 import { Buffer } from "buffer";
@@ -8,10 +8,10 @@ import { unzip } from "zlib";
 import { ParsedReplay } from "@/post-process/parsed";
 
 // A StarCraft: Remastered replay is a file composed of several "sections", each of which is composed of several "chunks". Each section
-// describes a different aspect of the replay, such as the header, player info, frames, map data, etc. Depending on the section, the chunks
+// describes a different aspect of the replay, such as the header, game info, frames, map data, etc. Depending on the section, the chunks
 // within may be compressed using zlib.
 //
-// This parser is a work in progress. Currently, only the header, player info, and frames sections are parsed (frames being a logical step
+// This parser is a work in progress. Currently, only the header, game info, and frames sections are parsed (frames being a logical step
 // of progression in the replay, containing some number of player commands that were issued. Below is a diagram of the high-level structure
 // of a replay file, up to the point where this parser currently parses. It does not describe the structure of the decompressed chunks. For
 // that, see the individual section parsers {@link /src/parser/sections}.
@@ -32,9 +32,9 @@ import { ParsedReplay } from "@/post-process/parsed";
 // [---]
 //
 // ┌──────────────────────────────────────────────────────┐   ┐
-// │3e eb c3 d3 | 01 00 00 00 | b6 00 00 00 | 78 9c 63 cc |   │- player info data section
+// │3e eb c3 d3 | 01 00 00 00 | b6 00 00 00 | 78 9c 63 cc |   │- game info data section
 // └──────────────────────────────────────────────────────┘   │
-// [crc         ][num chunks  ][num bytes  ][compressed.. ]   | The player info section is composed of a single chunk, which is compressed
+// [crc         ][num chunks  ][num bytes  ][compressed.. ]   | The game info section is composed of a single chunk, which is compressed
 // ┌──────────────────────────────────────────────────────┐   │ using zlib. The "num bytes" field is 182, which describes the size of the
 // │?? ?? ?? ?? | ?? ?? ?? ?? | ?? ?? ?? ?? | ?? ?? ?? ?? |   │ single chunk compressed. We read the compressed chunk, decompress it, and
 // └──────────────────────────────────────────────────────┘   │ parse the decompressed data.
@@ -120,7 +120,7 @@ export class ReplayParser {
       throw new Error(`Unsupported replay version: ${header.replayVersion}`);
     }
 
-    const playerInfo = parsePlayerInfo(await this.nextSection(true));
+    const gameInfo = parseGameInfo(await this.nextSection(true));
 
     await this.skipNextSection(); // this section describes the size of next section; we allocate dynamically instead
     const framesSection = await this.nextSection(true);
@@ -131,7 +131,7 @@ export class ReplayParser {
       frames.push(frame);
     }
 
-    return new ParsedReplay(playerInfo, frames);
+    return new ParsedReplay(gameInfo, frames);
   }
 
   /**

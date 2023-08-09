@@ -1,4 +1,4 @@
-import { PlayerInfo, PlayerStruct } from "@/parser/sections/player_info";
+import { GameInfo, PlayerStruct } from "@/parser/sections/game-info";
 import { Frame } from "@/parser/sections/frames";
 import {
   CommandOfType,
@@ -24,10 +24,10 @@ export type FramedCommandOfType<T extends TypeID> = WithFrameAndTime<CommandOfTy
  * parser.
  */
 export class ParsedReplay {
-  constructor(private readonly _playerInfo: PlayerInfo, private readonly _frames: Frame[]) {}
+  constructor(private readonly _gameInfo: GameInfo, private readonly _frames: Frame[]) {}
 
   public get durationMs() {
-    return this._playerInfo.frames * 42;
+    return this._gameInfo.frames * 42;
   }
 
   public get durationMinutes() {
@@ -48,7 +48,7 @@ export class ParsedReplay {
       subType,
       host,
       map,
-    } = this._playerInfo;
+    } = this._gameInfo;
 
     return {
       engine,
@@ -67,7 +67,7 @@ export class ParsedReplay {
   }
 
   public get frames() {
-    return this._playerInfo.frames;
+    return this._gameInfo.frames;
   }
 
   @Memoize()
@@ -83,11 +83,11 @@ export class ParsedReplay {
 
   @Memoize()
   public get players(): Array<PlayerStruct & { color: Color }> {
-    return this._playerInfo.playerStructs
+    return this._gameInfo.playerStructs
       .filter((p) => p.name !== "") // filter out empty slots
       .map((p) => ({
         ...p,
-        color: Colors[this._playerInfo.playerColors[p.slotID].color],
+        color: Colors[this._gameInfo.playerColors[p.slotID].color],
         apm: Math.round(this._actionsByPlayer[p.ID].length / this.durationMinutes),
         eapm: Math.round(determineEffectiveActions(this._actionsByPlayer[p.ID]) / this.durationMinutes),
       }));

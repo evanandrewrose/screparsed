@@ -2,7 +2,7 @@ import { Parser } from "binary-parser";
 import { Buffer } from "buffer";
 
 // Data skipped below is unknown (padding / alignment / unused?)
-const PlayerInfoParser = new Parser()
+const GameInfoParser = new Parser()
   .endianess("little")
   .int8("engine")
   .uint32("frames")
@@ -53,7 +53,7 @@ const PlayerInfoParser = new Parser()
     type: new Parser().uint32le("color"),
   });
 
-export type PlayerInfo = {
+export type GameInfo = {
   engine: number;
   frames: number;
   startTime: Date;
@@ -83,5 +83,5 @@ export type PlayerColor = {
   color: number;
 };
 
-export const parsePlayerInfo = (buffer: Buffer): PlayerInfo =>
-  PlayerInfoParser.parse(buffer);
+export const parseGameInfo = (buffer: Buffer): GameInfo =>
+  GameInfoParser.parse(buffer);
