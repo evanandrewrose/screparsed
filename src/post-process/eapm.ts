@@ -143,6 +143,7 @@ const numActionsForCommand = (
 };
 
 export const determineEffectiveActions = (commands: FramedCommand[]) =>
+  commands ?
   commands
     .map((command, frame) => numActionsForCommand(command, commands, frame))
-    .reduce((a: number, b: ActionsPerCommand) => a + b, 0);
+    .reduce((a: number, b: ActionsPerCommand) => a + b, 0) : 0;

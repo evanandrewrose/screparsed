@@ -83,14 +83,21 @@ export class ParsedReplay {
 
   @Memoize()
   public get players(): Array<PlayerStruct & { color: Color }> {
-    return this._gameInfo.playerStructs
-      .filter((p) => p.name !== "") // filter out empty slots
-      .map((p) => ({
-        ...p,
-        color: Colors[this._gameInfo.playerColors[p.slotID].color],
-        apm: Math.round(this._actionsByPlayer[p.ID].length / this.durationMinutes),
-        eapm: Math.round(determineEffectiveActions(this._actionsByPlayer[p.ID]) / this.durationMinutes),
-      }));
+    const players = [];
+
+    for (const player of this._gameInfo.playerStructs) {
+      if (player.name !== "") {
+        const actions: FramedCommand[] | undefined = this._actionsByPlayer[player.ID];
+        players.push({
+          ...player,
+          color: Colors[this._gameInfo.playerColors[player.slotID].color],
+          apm: actions ? Math.round(actions.length / this.durationMinutes) : 0,
+          eapm: actions ? Math.round(determineEffectiveActions(actions) / this.durationMinutes) : 0,
+        });
+      }
+    }
+
+    return players;
   }
 
   @Memoize()
