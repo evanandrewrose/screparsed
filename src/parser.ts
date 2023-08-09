@@ -179,7 +179,18 @@ export class ReplayParser {
     for (let i = 0; i < numChunks; i++) {
       const chunkSize = await this.stream.readUInt32LE();
       const chunk = await this.stream.read(chunkSize);
-      yield compressed ? await promisify(unzip)(chunk) : chunk;
+      if (compressed) {
+        try {
+          yield await promisify(unzip)(chunk);
+        } catch (err) {
+          if (err instanceof Error && err.message === "incorrect header check") {
+            // maybe uncompressed? just return the chunk
+            yield chunk;
+          }
+        }
+      } else {
+        yield chunk;
+      }
     }
   }
 }
