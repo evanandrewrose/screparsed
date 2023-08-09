@@ -31,4 +31,11 @@ export default [
       file: `dist/${name}.d.ts`,
     },
   }),
+  {
+    plugins: [tsConfigPaths(), esbuild()],
+    input: "bin/cli.ts",
+    output: {
+      file: `dist/cli.mjs`,
+    },
+  },
 ];
