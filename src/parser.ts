@@ -1,20 +1,21 @@
-import { HeaderSize, parseHeader } from "@/parser/sections/header";
-import { parseGameInfo } from "@/parser/sections/game-info";
+import { parsePlayerColors } from "@/parser/sections/colors";
 import { Frame, parseFramesSection } from "@/parser/sections/frames";
+import { parseGameInfo } from "@/parser/sections/game-info";
+import { HeaderSize, parseHeader } from "@/parser/sections/header";
+import { ParsedReplay } from "@/post-process/parsed";
 import { StreamReader } from "@/util";
 import { Buffer } from "buffer";
 import { promisify } from "util";
 import { unzip } from "zlib";
-import { ParsedReplay } from "@/post-process/parsed";
 
 // A StarCraft: Remastered replay is a file composed of several "sections", each of which is composed of several "chunks". Each section
 // describes a different aspect of the replay, such as the header, game info, frames, map data, etc. Depending on the section, the chunks
 // within may be compressed using zlib.
 //
-// This parser is a work in progress. Currently, only the header, game info, and frames sections are parsed (frames being a logical step
-// of progression in the replay, containing some number of player commands that were issued. Below is a diagram of the high-level structure
-// of a replay file, up to the point where this parser currently parses. It does not describe the structure of the decompressed chunks. For
-// that, see the individual section parsers {@link /src/parser/sections}.
+// This parser is a work in progress. Currently, only the header, game info, color, and frames sections are parsed (frames being a logical
+// step of progression in the replay, containing player commands that were issued in that frame). Below is a diagram of the high-level
+// structure of a replay file, up to the point where this parser currently parses. It does not describe the structure of the decompressed
+// chunks. For that, see the individual section parsers {@link /src/parser/sections}.
 //
 // Note that chunks are not guaranteed to be parsable individually. Instead, they must be decompressed and then parsed as a whole or parsed
 // as a stream. For simplicity, this parser decompresses the entire section before parsing it, though streaming would be more memory
@@ -66,12 +67,12 @@ const REMASTERED_REPLAY_VERSION = "seRS";
 
 /**
  * A parser for StarCraft: Remastered replay files
- * 
+ *
  * @example using with a file input
  * ```
  * const file = await open(replay, O_RDONLY);
  * const readStream = file.createReadStream();
- * 
+ *
  * const readableStream = new ReadableStream({
  *   start(controller) {
  *     readStream.on("data", (chunk) => {
@@ -86,7 +87,7 @@ const REMASTERED_REPLAY_VERSION = "seRS";
  *   },
  *   type: "bytes", // <- required
  * });
- * 
+ *
  * const parser = ReplayParser.fromReadableStream(readableStream);
  * const replay = await parser.parse();
  * ```
@@ -131,7 +132,29 @@ export class ReplayParser {
       frames.push(frame);
     }
 
-    return new ParsedReplay(gameInfo, frames);
+    // tbd: actually parse these sections... for now, we skip ahead to the colors section
+    await this.skipNextSection(); // skip map data size section
+    await this.skipNextSection(); // skip map data section
+    await this.skipNextSection(); // skip player names section
+
+    // future "modern" sections have sectionid + section size before each, though they're in a predictable order
+    const _skinsSectionId = (await this.stream.read(4)).readUint32LE();
+    await this.stream.read(4); // skip remaining section size
+    await this.skipNextSection(); // skip skins section
+
+    const _lmtsSectionId = (await this.stream.read(4)).readUint32LE();
+    await this.stream.read(4); // skip remaining section size
+    await this.skipNextSection(); // skip skins section
+
+    const _bfixSectionId = (await this.stream.read(4)).readUint32LE();
+    await this.stream.read(4); // skip remaining section size
+    await this.skipNextSection(); // skip skins section
+
+    const _playerColorsSectionId = (await this.stream.read(4)).toString();
+    await this.stream.read(4); // skip remaining section size
+    const playerColors = parsePlayerColors(await this.nextSection(true));
+
+    return new ParsedReplay(gameInfo, frames, playerColors);
   }
 
   /**
@@ -183,7 +206,10 @@ export class ReplayParser {
         try {
           yield await promisify(unzip)(chunk);
         } catch (err) {
-          if (err instanceof Error && err.message === "incorrect header check") {
+          if (
+            err instanceof Error &&
+            err.message === "incorrect header check"
+          ) {
             // maybe uncompressed? just return the chunk
             yield chunk;
           }

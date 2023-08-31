@@ -1,6 +1,6 @@
 {
   "name": "screparsed",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "main": "./dist/screparsed.js",
   "module": "./dist/screparsed.mjs",
   "types": "./dist/screparsed.d.ts",

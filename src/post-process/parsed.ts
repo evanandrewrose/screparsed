@@ -24,7 +24,7 @@ export type FramedCommandOfType<T extends TypeID> = WithFrameAndTime<CommandOfTy
  * parser.
  */
 export class ParsedReplay {
-  constructor(private readonly _gameInfo: GameInfo, private readonly _frames: Frame[]) {}
+  constructor(private readonly _gameInfo: GameInfo, private readonly _frames: Frame[], private readonly _colors: Array<Color | null>) {}
 
   public get durationMs() {
     return this._gameInfo.frames * 42;
@@ -88,9 +88,12 @@ export class ParsedReplay {
     for (const player of this._gameInfo.playerStructs) {
       if (player.name !== "") {
         const actions: FramedCommand[] | undefined = this._actionsByPlayer[player.ID];
+        const colorFromHeader = Colors[this._gameInfo.playerColors[player.slotID].color];
+        const colorFromColorsSection = this._colors[player.slotID];
+
         players.push({
           ...player,
-          color: Colors[this._gameInfo.playerColors[player.slotID].color],
+          color: colorFromColorsSection ?? colorFromHeader,
           apm: actions ? Math.round(actions.length / this.durationMinutes) : 0,
           eapm: actions ? Math.round(determineEffectiveActions(actions) / this.durationMinutes) : 0,
         });
